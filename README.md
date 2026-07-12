@@ -35,16 +35,22 @@ GitHub Issues are the backlog, a GitHub Projects board is the status view, issue
 live log (Ivan comments at every stage). Push notifications on: feature complete, backlog complete,
 stuck (circuit breaker), clarification needed, open questions awaiting input.
 
-## Install
+## Install (once per machine)
 
 ```
-/plugin marketplace add VassilAtanasov/ivan-sdlc
-/plugin install ivan@ivan-sdlc
+claude plugin marketplace add VassilAtanasov/ivan-sdlc
+claude plugin install ivan@ivan-sdlc
 ```
+
+(or the `/plugin marketplace add` / `/plugin install` slash commands in an interactive session).
+Private-repo note: cloning uses your git HTTPS credentials — `gh auth login` once if needed.
+Restart the session after installing; skills load at session start.
 
 Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above.
 
-Or pin it per project in `.claude/settings.json` so every collaborator gets Ivan automatically:
+A project can additionally pin Ivan in its `.claude/settings.json` — this **declares** the
+marketplace and keeps the plugin enabled for everyone, but each collaborator still runs the
+two install commands once on their machine:
 
 ```json
 {
@@ -54,6 +60,16 @@ Or pin it per project in `.claude/settings.json` so every collaborator gets Ivan
   "enabledPlugins": { "ivan@ivan-sdlc": true }
 }
 ```
+
+## Update (after enhancing Ivan)
+
+```
+claude plugin marketplace update ivan-sdlc
+```
+
+All projects on the machine pick up the new version at their next session. Template files
+already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml) are refreshed by re-running
+`/adopt` in that project.
 
 ## Layout
 
