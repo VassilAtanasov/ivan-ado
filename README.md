@@ -1,0 +1,67 @@
+# ivan-sdlc — Ivan, an autonomous SDLC agent for Claude Code
+
+**Ivan** is a Claude Code plugin that turns any repository into an autonomous software development
+lifecycle: you describe the product, Ivan plans it with you, then builds it feature by feature —
+gated, tested, reviewed, verified, and merged through PRs — pinging you only when something is
+done or needs your decision.
+
+## The lifecycle
+
+```
+/adopt  →  /discover  →  /kickoff  →  /autopilot ( = /feature × N )
+ once       you + Ivan     Ivan          Ivan alone
+ per repo   collaborate    (asks only    (notifies you when done or stuck)
+                           if unclear)
+```
+
+| Skill | What it does |
+|---|---|
+| `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
+| `/discover` | Guided interview: product ideation → functionality discovery → architecture. Produces `docs/REQUIREMENTS.md` + `docs/ARCHITECTURE.md`. Resumable. |
+| `/kickoff` | Requirements → GitHub Issues backlog (acceptance criteria per feature) + Projects Kanban board. Refuses to guess: notifies you and asks if anything is ambiguous. |
+| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent → `qa-verifier` agent against the running app → PR → CI green → squash-merge. |
+| `/autopilot` | Loops `/feature` over the whole backlog; circuit breaker stops and notifies you after 3 failed cycles on one issue. |
+
+## Quality guarantees
+
+1. **One gate script** (`gate.ps1`) — build (warnings-as-errors), tests, typecheck, lint — run locally, by the Stop hook, and by CI.
+2. **Stop hook** — Ivan cannot end a working turn while the gate fails; the failure is fed back until fixed.
+3. **Fresh-context subagents** — `code-reviewer` (read-only, adversarial, no memory of writing the code) and `qa-verifier` (exercises the real running app per acceptance criterion).
+4. **GitHub Actions CI** — same gate re-runs on every PR; merging on red is forbidden.
+
+## Tracking & notifications
+
+GitHub Issues are the backlog, a GitHub Projects board is the status view, issue timelines are the
+live log (Ivan comments at every stage). Push notifications on: feature complete, backlog complete,
+stuck (circuit breaker), clarification needed, open questions awaiting input.
+
+## Install
+
+```
+/plugin marketplace add VassilAtanasov/ivan-sdlc
+/plugin install ivan@ivan-sdlc
+```
+
+Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above.
+
+Or pin it per project in `.claude/settings.json` so every collaborator gets Ivan automatically:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "ivan-sdlc": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-sdlc" } }
+  },
+  "enabledPlugins": { "ivan@ivan-sdlc": true }
+}
+```
+
+## Layout
+
+```
+.claude-plugin/plugin.json   plugin manifest (+ marketplace.json — this repo is its own marketplace)
+skills/                      adopt, discover, kickoff, feature, autopilot
+agents/                      code-reviewer, qa-verifier
+templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, doc skeletons
+```
+
+Reference implementation: https://github.com/VassilAtanasov/Mills

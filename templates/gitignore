@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+TestResults/
+*.db
+*.db-shm
+*.db-wal
+
+# Node
+node_modules/
+dist/
+coverage/
+.vite/
+*.local
+
+# Editors / OS
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local-only Claude settings (machine-specific overrides)
+.claude/settings.local.json
