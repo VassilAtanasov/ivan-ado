@@ -23,6 +23,9 @@ docs immediately — the docs are the deliverable, the chat is scratch.
 ## Pass 1 — Product ideation (→ REQUIREMENTS.md §1–3)
 
 Goal: a sharp product goal, named target users, observable success criteria.
+- **Begin here:** before anything else, ask the user to describe the feature or product in their
+  own words as free text — a single open prompt, not AskUserQuestion. Take whatever they give
+  (a sentence, a vague itch, a full pitch) as the raw material for this pass.
 - Start from whatever the user has — a sentence, a vague itch, a full pitch.
 - Be a partner, not a stenographer: propose sharper framings, point out when the target user is
   "everyone" (it never is), challenge features masquerading as goals.
@@ -54,6 +57,14 @@ REQUIREMENTS.md §7 immediately — nothing unresolved may live only in chat. Wh
 pauses or ends with §7 non-empty, send a push notification: "<project>: N open questions from
 discovery need your input" with the questions listed, so the user knows discovery is waiting on
 them without polling.
+
+## Additional notes
+
+Before exiting, once all three passes are complete, ask the user as a final open prompt (free
+text, not AskUserQuestion) whether they have any additional notes, constraints, or context they
+want captured — anything that didn't surface naturally in the passes above. Fold whatever they
+give into the relevant sections of the docs (or §7 if it opens a new question), then proceed to
+Exit. If they have nothing to add, move on.
 
 ## Exit
 
