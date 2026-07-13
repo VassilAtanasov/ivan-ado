@@ -19,13 +19,13 @@ done or needs your decision.
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
 | `/discover` | Guided interview: product ideation → functionality discovery → architecture. Produces `docs/REQUIREMENTS.md` + `docs/ARCHITECTURE.md`. Resumable. |
 | `/kickoff` | Requirements → GitHub Issues backlog (acceptance criteria per feature) + Projects Kanban board. Refuses to guess: notifies you and asks if anything is ambiguous. |
-| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent → `qa-verifier` agent against the running app → PR → CI green → squash-merge. |
+| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge. |
 | `/autopilot` | Loops `/feature` over the whole backlog; circuit breaker stops and notifies you after 3 failed cycles on one issue. |
 
 ## Quality guarantees
 
-1. **One gate script** (`gate.ps1`) — build (warnings-as-errors), tests, typecheck, lint — run locally, by the Stop hook, and by CI.
-2. **Stop hook** — Ivan cannot end a working turn while the gate fails; the failure is fed back until fixed.
+1. **One gate script** (`gate.ps1`) — build (warnings-as-errors), tests, typecheck, lint — run locally, by the Stop hook, and by CI. Server and client legs run in parallel; a green run stamps the working tree (`.gate-stamp`).
+2. **Stop hook** — Ivan cannot end a working turn while the gate fails; the failure is fed back until fixed. Skips the re-run when the tree already matches the last green stamp.
 3. **Fresh-context subagents** — `code-reviewer` (read-only, adversarial, no memory of writing the code) and `qa-verifier` (exercises the real running app per acceptance criterion).
 4. **GitHub Actions CI** — same gate re-runs on every PR; merging on red is forbidden.
 

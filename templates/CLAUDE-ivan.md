@@ -24,8 +24,10 @@ A feature is done only when ALL of these hold:
 
 1. Code and tests implemented on branch `feature/<issue-number>-<slug>`.
 2. `gate.ps1` passes locally.
-3. `code-reviewer` subagent ran on the diff; all Critical/Major findings fixed (re-gate after fixes).
-4. `qa-verifier` subagent confirmed every acceptance criterion on the issue against the running app.
+3. `code-reviewer` subagent ran on the diff; all Critical/Major findings fixed (re-gate after
+   fixes; send fixes back to the same reviewer as a delta re-review, not a fresh full review).
+4. `qa-verifier` subagent confirmed every acceptance criterion on the issue against the running
+   app. Review and QA run in parallel; after fixes, only failed/affected criteria are re-verified.
 5. PR created with `Closes #<issue-number>`, CI green, squash-merged.
 6. Push notification sent to the user ("Feature #N complete: <title>").
 

@@ -17,6 +17,9 @@ coverage/
 .vite/
 *.local
 
+# Quality gate success stamp (local cache, machine-specific)
+.gate-stamp
+
 # Editors / OS
 .idea/
 *.swp

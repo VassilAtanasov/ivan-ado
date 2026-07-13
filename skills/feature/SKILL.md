@@ -32,17 +32,29 @@ If none exist, say so and stop.
    CLAUDE.md. Work criterion by criterion; each criterion should map to at least one test.
 5. **Gate** — run the project's `./gate.ps1` until green. (The Stop hook enforces this anyway —
    get there yourself.) Comment: "Gate green."
-6. **Review** — spawn the `code-reviewer` agent with branch name, issue number, and acceptance
-   criteria. Fix ALL Critical and Major findings, re-run the gate, and re-review until
-   `VERDICT: APPROVE`. Comment: "Review passed (N findings fixed)."
-7. **Verify** — spawn the `qa-verifier` agent with the issue number and acceptance criteria. Fix
-   failures and re-verify until `VERDICT: VERIFIED`. Comment: "QA verified against acceptance criteria."
-8. **Ship** — commit (small, imperative messages), push the branch,
+6. **Review + Verify (parallel)** — spawn BOTH agents at the same time (background agents, then
+   wait for both): the `code-reviewer` with branch name, issue number, and acceptance criteria,
+   and the `qa-verifier` with the issue number and acceptance criteria. They are independent —
+   the reviewer reads the diff, the verifier exercises the running app. Record the current HEAD
+   sha before spawning (the reviewer needs it for delta re-reviews).
+   - Both `VERDICT: APPROVE` and `VERDICT: VERIFIED` → comment "Review passed, QA verified
+     against acceptance criteria." and ship.
+   - Otherwise fix ALL Critical/Major review findings and QA failures in one pass, re-run the
+     gate, then re-check incrementally — do NOT spawn fresh agents:
+     - Re-review: SendMessage to the SAME `code-reviewer` agent with the range
+       `git diff <last-reviewed-sha>..HEAD` and the list of findings you addressed. Spawn a
+       fresh reviewer only if the fixes rewrote most of the feature.
+     - Re-verify: SendMessage to the SAME `qa-verifier` agent naming ONLY the criteria that
+       failed plus any the fixes could affect (it restarts the app to pick up new code; prior
+       passes on untouched behavior stand).
+   - Repeat until `VERDICT: APPROVE` and `VERDICT: VERIFIED`. Comment: "Review passed
+     (N findings fixed). QA verified against acceptance criteria."
+7. **Ship** — commit (small, imperative messages), push the branch,
    `gh pr create --title "<title> (#<N>)" --body "...Closes #<N>"` with a summary of approach,
    review findings fixed, and QA results. Wait for CI: `gh pr checks <pr> --watch`. On green:
    `gh pr merge <pr> --squash --delete-branch`. On red: fix on the branch, push, wait again —
    never merge red, never bypass.
-9. **Close out** — issue auto-closes via the PR. Send push notification:
+8. **Close out** — issue auto-closes via the PR. Send push notification:
    "<project>: feature #<N> complete — <title>". Back to `main` + `git pull`.
 
 ## Circuit breaker

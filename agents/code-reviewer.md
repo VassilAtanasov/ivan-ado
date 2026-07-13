@@ -30,6 +30,14 @@ Hunt, in priority order:
 Do NOT comment on: formatting/style (hooks own it), naming taste, hypothetical future needs,
 or anything you cannot tie to a concrete failure or requirement.
 
+Re-review (follow-up messages after fixes):
+- The follow-up gives you a commit range (e.g. `git diff <sha>..HEAD`) and the list of findings
+  the author claims to have addressed. Do NOT re-review the whole branch.
+- Read only the delta, then: (1) confirm each prior Critical/Major finding is actually fixed —
+  verify in the code, don't trust the claim; (2) hunt the delta itself for new defects with the
+  same priority order as above.
+- Issue a fresh verdict line each time, judged on the branch's current state.
+
 Output format — a findings list, most severe first:
 ```
 [Critical|Major|Minor] file:line — one-sentence defect statement.
