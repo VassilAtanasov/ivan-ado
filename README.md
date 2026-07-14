@@ -8,10 +8,10 @@ done or needs your decision.
 ## The lifecycle
 
 ```
-/adopt  →  /discover  →  /kickoff  →  /autopilot ( = /feature × N )
- once       you + Ivan     Ivan          Ivan alone
- per repo   collaborate    (asks only    (notifies you when done or stuck)
-                           if unclear)
+/adopt  →  /discover  →  /kickoff  →  /autopilot ( = /feature × N )  →  /retrospective
+ once       you + Ivan     Ivan          Ivan alone                       Ivan alone
+ per repo   collaborate    (asks only    (per feature: build, ship,       (lessons +
+                           if unclear)    then a /learning-coach note)      follow-ups)
 ```
 
 | Skill | What it does |
@@ -19,8 +19,10 @@ done or needs your decision.
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
 | `/discover` | Guided interview: product ideation → functionality discovery → architecture. Produces `docs/REQUIREMENTS.md` + `docs/ARCHITECTURE.md`. Resumable. |
 | `/kickoff` | Requirements → GitHub Issues backlog (acceptance criteria per feature) + Projects Kanban board. Refuses to guess: notifies you and asks if anything is ambiguous. |
-| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge. |
-| `/autopilot` | Loops `/feature` over the whole backlog; circuit breaker stops and notifies you after 3 failed cycles on one issue. |
+| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → `learning-coach` note. |
+| `/autopilot` | Loops `/feature` over the whole backlog; circuit breaker stops and notifies you after 3 failed cycles on one issue; runs `/retrospective` when the run ends. |
+| `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at feature close-out; never gates or edits code. |
+| `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as `follow-up`-labeled issues (never `feature`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
 
 ## Quality guarantees
 
@@ -75,7 +77,7 @@ already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml) are refreshed
 
 ```
 .claude-plugin/plugin.json   plugin manifest (+ marketplace.json — this repo is its own marketplace)
-skills/                      adopt, discover, kickoff, feature, autopilot
+skills/                      adopt, discover, kickoff, feature, autopilot, retrospective, learning-coach
 agents/                      code-reviewer, qa-verifier
 templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, doc skeletons
 ```

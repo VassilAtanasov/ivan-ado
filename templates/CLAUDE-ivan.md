@@ -41,6 +41,17 @@ Never merge on red CI. Never close an issue by hand — the PR merge closes it.
 - Circuit breaker: if an issue fails 3 gate/review/verify cycles, comment your diagnosis on the
   issue, send a push notification, and stop — do not thrash.
 
+## Continuous improvement (autonomous, non-blocking)
+
+These run without a human gate and never block or reopen a feature:
+
+- After each feature merges, the `learning-coach` skill appends a note to `docs/LEARNING-LOG.md`
+  about the language concepts that feature introduced (per the Stack below). Artifact only.
+- When an `/autopilot` run ends (backlog drained or circuit breaker), the `retrospective` skill
+  records outcome and lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as
+  `follow-up`-labeled issues (never `feature` — autopilot won't auto-build them), and safely
+  returns the tree to an updated `main`.
+
 ## Ivan project config
 
 <!-- Filled by /adopt and /kickoff. Every pipeline phase reads this section. -->

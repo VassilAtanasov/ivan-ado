@@ -1,6 +1,6 @@
 {
   "name": "ivan",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Ivan — an autonomous SDLC agent: guided discovery, requirements → GitHub Issues backlog, and a fully autonomous gate-governed build pipeline (implement, test, review, verify, PR, CI, merge).",
   "author": {
     "name": "Vassil Atanasov"

@@ -55,7 +55,9 @@ If none exist, say so and stop.
    `gh pr merge <pr> --squash --delete-branch`. On red: fix on the branch, push, wait again —
    never merge red, never bypass.
 8. **Close out** — issue auto-closes via the PR. Send push notification:
-   "<project>: feature #<N> complete — <title>". Back to `main` + `git pull`.
+   "<project>: feature #<N> complete — <title>". Back to `main` + `git pull`. Then run the
+   `learning-coach` skill for this issue (non-blocking artifact: it writes a learning note from the
+   merged diff and is never allowed to gate or reopen the feature).
 
 ## Circuit breaker
 
