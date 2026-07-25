@@ -9,8 +9,9 @@ exercising the running application — not by reading the code or trusting the u
 Input you will receive in the task prompt: the GitHub issue number and its acceptance criteria.
 
 Procedure:
-1. Read the project's `CLAUDE.md` and `docs/ARCHITECTURE.md` to learn how to start the application
-   (backend run command, frontend dev server, ports).
+1. Read the project's `CLAUDE.md`, the active project's `docs/<project-slug>/ARCHITECTURE.md`, and
+   the repo-wide `docs/ARCHITECTURE.md` to learn how to start the application (backend run
+   command, frontend dev server, ports). The per-project file wins where the two disagree.
 2. Start what the feature needs (background processes) ONCE, wait until they are listening. Keep
    them running for the whole verification pass — never restart between criteria except as
    required by step 3c.

@@ -5,23 +5,43 @@ lifecycle: you describe the product, Ivan plans it with you, then builds it feat
 gated, tested, reviewed, verified, and merged through PRs — pinging you only when something is
 done or needs your decision.
 
+## Planning in Workflowy
+
+You plan in [Workflowy](https://workflowy.com/); Ivan reads and writes that outline through the
+Workflowy API (`WORKFLOWY_API_KEY` in the repo's gitignored `.env`). Three levels matter:
+
+| Level | Workflowy item | Maps to |
+|---|---|---|
+| 1 | repository — name matches the GitHub repo (`TradingBot`) | the repo; never auto-synced |
+| 2 | project — one phase of iterative development | one GitHub Project + `docs/<project-slug>/` |
+| 3 | feature — one shippable slice; its **note** is the feature description | one `feature` issue (body = the note), built by `/implement` |
+| 4+ | notes, edge cases, open questions, later/maybe | raw material for discovery; never synced |
+
+Workflowy is the source of truth for the **plan**, `docs/` for the **product truth**, GitHub for
+**execution**. Writes to Workflowy are dry-run until you say go; Ivan never deletes, moves, or
+completes a node. Details: [`references/workflowy.md`](references/workflowy.md).
+
 ## The lifecycle
 
+The loop after `/adopt` runs **once per project (phase)** — you keep adding level-2 projects in
+Workflowy and Ivan drains them one at a time:
+
 ```
-/adopt  →  /discover  →  /kickoff  →  /autopilot ( = /feature × N )  →  /retrospective
- once       you + Ivan     Ivan          Ivan alone                       Ivan alone
- per repo   collaborate    (asks only    (per feature: build, ship,       (lessons +
-                           if unclear)    then a /learning-coach note)      follow-ups)
+/adopt  →  /discover <project>  →  /kickoff <feature>  →  /implement <issue>   →  /retrospective
+ once       you + Ivan             you + Ivan,             Ivan alone             Ivan alone
+ per repo   which features?        once per feature:       or /autopilot          (lessons +
+                                   what does it mean?      to drain the board      follow-ups)
+                                   → note + issue
 ```
 
 | Skill | What it does |
 |---|---|
-| `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
-| `/discover` | Guided interview: product ideation → functionality discovery → architecture. Produces `docs/REQUIREMENTS.md` + `docs/ARCHITECTURE.md`. Resumable. |
-| `/kickoff` | Requirements → GitHub Issues backlog (acceptance criteria per feature) + Projects Kanban board. Refuses to guess: notifies you and asks if anything is ambiguous. |
-| `/feature` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → `learning-coach` note. |
-| `/autopilot` | Loops `/feature` over the whole backlog; circuit breaker stops and notifies you after 3 failed cycles on one issue; runs `/retrospective` when the run ends. |
-| `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at feature close-out; never gates or edits code. |
+| `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, Workflowy key + root node, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
+| `/discover <project>` | **Breadth, one run per project.** Decomposes one Workflowy project into its feature list: ideation → feature decomposition → architecture, seeded by what you already outlined. Writes the features back as level-3 items with stub notes and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
+| `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes the description into that feature's Workflowy note (`## Goal`, `## Acceptance criteria`, `## Out of scope`); mirrors the criteria into REQUIREMENTS.md; then creates the GitHub issue with that note as its body verbatim, on the project's board (created on first use). Open questions block the issue instead of becoming guesses. |
+| `/implement <issue>` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → `learning-coach` note. |
+| `/autopilot` | Loops `/implement` over the active project's board until that phase is drained; circuit breaker stops and notifies you after 3 failed cycles on one issue; runs `/retrospective` when the run ends and points you at the next Workflowy project. |
+| `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at `/implement` close-out; never gates or edits code. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as `follow-up`-labeled issues (never `feature`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
 
 ## Quality guarantees
@@ -33,8 +53,8 @@ done or needs your decision.
 
 ## Tracking & notifications
 
-GitHub Issues are the backlog, a GitHub Projects board is the status view, issue timelines are the
-live log (Ivan comments at every stage). Push notifications on: feature complete, backlog complete,
+GitHub Issues are the backlog, one GitHub Projects board per Workflowy project is the status view,
+issue timelines are the live log (Ivan comments at every stage). Push notifications on: feature complete, backlog complete,
 stuck (circuit breaker), clarification needed, open questions awaiting input.
 
 ## Install (once per machine)
@@ -48,7 +68,9 @@ claude plugin install ivan@ivan-sdlc
 Private-repo note: cloning uses your git HTTPS credentials — `gh auth login` once if needed.
 Restart the session after installing; skills load at session start.
 
-Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above.
+Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above. `/discover`
+and `/kickoff` additionally need Python 3.9+ and a Workflowy API key
+(https://workflowy.com/api-key) in the repo's gitignored `.env` as `WORKFLOWY_API_KEY=...`.
 
 A project can additionally pin Ivan in its `.claude/settings.json` — this **declares** the
 marketplace and keeps the plugin enabled for everyone, but each collaborator still runs the
@@ -77,8 +99,11 @@ already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml) are refreshed
 
 ```
 .claude-plugin/plugin.json   plugin manifest (+ marketplace.json — this repo is its own marketplace)
-skills/                      adopt, discover, kickoff, feature, autopilot, retrospective, learning-coach
+skills/                      adopt, discover, kickoff, implement, autopilot, retrospective,
+                             learning-coach
 agents/                      code-reviewer, qa-verifier
+scripts/                     workflowy_cli.py (Workflowy API helper used by discover + kickoff)
+references/                  workflowy.md (API notes + the repo→project→feature outline contract)
 templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, doc skeletons
 ```
 

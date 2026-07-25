@@ -9,6 +9,7 @@
       "Bash(gh pr:*)", "Bash(gh issue:*)", "Bash(gh project:*)", "Bash(gh label:*)",
       "Bash(gh run:*)", "Bash(gh repo view:*)", "Bash(gh api:*)",
       "Bash(powershell:*gate.ps1*)", "Bash(pwsh:*gate.ps1*)",
+      "Bash(python:*workflowy_cli.py*)", "PowerShell(python:*workflowy_cli.py*)",
       "PowerShell(dotnet:*)", "PowerShell(npm:*)", "PowerShell(npx:*)", "PowerShell(node:*)",
       "PowerShell(git status:*)", "PowerShell(git diff:*)", "PowerShell(git log:*)",
       "PowerShell(git add:*)", "PowerShell(git commit:*)", "PowerShell(git checkout:*)",

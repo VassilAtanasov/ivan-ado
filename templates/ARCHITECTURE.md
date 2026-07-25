@@ -2,6 +2,10 @@
 
 > Written collaboratively with Ivan during `/discover` (pass 3). Records the decisions, not just
 > the diagram — future build-mode sessions follow this file. Status: **TEMPLATE — not yet filled**.
+>
+> Used in two places: `docs/ARCHITECTURE.md` holds the system-wide baseline shared by every phase,
+> and `docs/<project-slug>/ARCHITECTURE.md` records what that phase adds or changes, deferring to
+> the baseline for everything else.
 
 ## 1. Overview
 

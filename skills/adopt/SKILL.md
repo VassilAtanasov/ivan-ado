@@ -31,12 +31,31 @@ SKILL.md file's location: `../../templates/`).
 - `ci.yml` → `.github/workflows/ci.yml`, adapted to the stack's runtimes. CI must run the same
   `gate.ps1`.
 
-## 3. Docs
+## 3. Workflowy (the planning source of truth)
 
-- `REQUIREMENTS.md` and `ARCHITECTURE.md` templates → `docs/` (skip if the project already has
-  filled versions).
+Ivan plans in Workflowy: level 1 = this repository, level 2 = projects (phases of iterative
+development), level 3 = features. See this plugin's `references/workflowy.md` for the full
+contract and the CLI (`../../scripts/workflowy_cli.py` relative to this SKILL.md).
 
-## 4. CLAUDE.md
+- Check `python --version` (3.9+ required by the CLI). If Python is missing, say so and continue —
+  everything except `/discover` and `/kickoff` still works.
+- `WORKFLOWY_API_KEY`: verify it resolves from the environment or a repo `.env`. If it doesn't,
+  tell the user to create a key at https://workflowy.com/api-key and put it in `.env` as
+  `WORKFLOWY_API_KEY=...` themselves — never ask them to paste it into chat. Ensure `.env` is in
+  `.gitignore` before the key exists.
+- Resolve the level-1 node whose name matches the repo name (`workflowy_cli.py search "<repo>"`,
+  rate-limited to 1/min). If none exists, tell the user to create it in Workflowy with a one-line
+  note, and offer to bootstrap its first level-2 project node once it exists.
+- Record the node's short id in the Ivan project config as `Workflowy root`.
+
+## 4. Docs
+
+- Repo-wide `docs/ARCHITECTURE.md` from the template (system-level decisions shared by every
+  phase; skip if the project already has a filled one).
+- Per-project docs are created by `/discover` at `docs/<project-slug>/REQUIREMENTS.md` and
+  `docs/<project-slug>/ARCHITECTURE.md` from the same templates — don't pre-create them here.
+
+## 5. CLAUDE.md
 
 - Prepend the Ivan persona from the `CLAUDE-ivan.md` template if the project's CLAUDE.md doesn't
   already declare Ivan (create CLAUDE.md if absent; if one exists, keep its content below the
@@ -46,12 +65,17 @@ SKILL.md file's location: `../../templates/`).
   ## Ivan project config
   - GitHub: <owner>/<repo>
   - Stack: <from user/architecture; "open — decided during /discover" is valid>
-  - Projects board: (created during /kickoff)
-  - Status field IDs: (recorded during /kickoff)
-  ```
-  Every later phase reads this section; /kickoff appends the board IDs.
+  - Workflowy root: <short id> (level-1 item "<repo>")
+  - Active project: (set by /discover)
 
-## 5. Verify the enforcement actually works (do not skip)
+  ### Projects
+  | Project (Workflowy level 2) | wf short id | Docs folder | Board # | Project ID | Status field / Todo / In Progress / Done |
+  |---|---|---|---|---|---|
+  | (filled by /discover and /kickoff) | | | | | |
+  ```
+  Every later phase reads this section; /discover adds the project row, /kickoff fills its board IDs.
+
+## 6. Verify the enforcement actually works (do not skip)
 
 1. Run `./gate.ps1` → must pass (trivially or genuinely).
 2. Simulate a failure (e.g. a deliberately broken file where the gate looks) and pipe
@@ -59,8 +83,10 @@ SKILL.md file's location: `../../templates/`).
    output. Clean up.
 3. Commit everything, push, confirm the CI run goes green (`gh run list`).
 
-## 6. Hand off
+## 7. Hand off
 
 Tell the user: adoption complete, and (in a fresh session so CLAUDE.md and hooks load) run
-`/discover` to start shaping the product. List the notification triggers so they know when
+`/discover <project>` to decompose the first Workflowy project into features, then
+`/kickoff <feature>` once per feature to settle its description and create its issue.
+List the notification triggers so they know when
 they'll be pinged: feature complete, backlog complete, stuck, clarification needed, open questions.

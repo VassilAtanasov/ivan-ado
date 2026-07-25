@@ -13,7 +13,7 @@ Read the `## Ivan project config` section of the project's CLAUDE.md for the **S
 is the language(s) you teach against (Python, for a Python project). If the stack is still open,
 infer the language from the changed files.
 
-Scope: the feature that just merged when invoked at `/feature` close-out (diff its squash-merge on
+Scope: the feature that just merged when invoked at `/implement` close-out (diff its squash-merge on
 `main`), or an explicit issue / PR / commit range when invoked standalone.
 
 ## Workflow

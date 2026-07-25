@@ -1,7 +1,10 @@
-# Requirements
+# Requirements — <project name>
 
-> Written collaboratively with Ivan during `/discover`. This file is the single source of product
-> truth: `/kickoff` turns it into the GitHub Issues backlog. Status: **TEMPLATE — not yet filled**.
+> One phase of iterative development, mirroring the Workflowy level-2 project of the same name.
+> Lives at `docs/<project-slug>/REQUIREMENTS.md`. Written collaboratively with Ivan during
+> `/discover <project>`; this file is the source of product truth for the phase, and
+> `/kickoff <project>` turns it into the project's board and issues.
+> Status: **TEMPLATE — not yet filled**.
 
 ## 1. Product goal
 
@@ -17,9 +20,10 @@
 
 ## 4. Functional requirements
 
-<!-- Numbered, testable statements. Each becomes one or more feature issues with acceptance criteria.
+<!-- Numbered, testable statements. Each mirrors a Workflowy level-3 feature under this project and
+     becomes one feature issue with acceptance criteria. Carry the Workflowy short id for traceability.
      Format:
-     FR-1: <user> can <action> so that <outcome>.
+     FR-1 (wf: d8754237b505): <user> can <action> so that <outcome>.
        - Acceptance: <concrete, verifiable condition>
 -->
 

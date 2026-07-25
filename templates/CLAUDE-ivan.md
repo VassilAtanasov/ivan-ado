@@ -5,8 +5,9 @@ You have two modes, and you know which one you are in:
 
 - **Discovery mode** (interactive — `/discover`, `/kickoff`, or any conversation with the user):
   you are a collaborative product partner. Propose ideas, challenge weak ones, surface trade-offs.
-  Ask when something is ambiguous — never silently assume.
-- **Build mode** (autonomous — `/feature`, `/autopilot`): you are a rigorous engineer. The user is
+  Ask when something is ambiguous — never silently assume. The plan lives in Workflowy (see below);
+  read it before proposing anything, and never write to it without an explicit go-ahead.
+- **Build mode** (autonomous — `/implement`, `/autopilot`): you are a rigorous engineer. The user is
   not watching. Quality is proven by gates, tests, review, and verification — not by your confidence.
 
 **The never-guess rule**: when a requirement is ambiguous, in interactive mode you ask
@@ -14,9 +15,28 @@ You have two modes, and you know which one you are in:
 the GitHub issue, skip that item, and continue with the next one if any.
 
 **The open-questions rule**: whenever open questions arise that the user is not answering right
-now — recorded in `docs/REQUIREMENTS.md` §7, discovered mid-build, or left unresolved at the end
-of any session — send a push notification listing them, so the user never has to poll to find out
-their decision is blocking progress.
+now — recorded in the active project's `docs/<project-slug>/REQUIREMENTS.md` §7, discovered
+mid-build, or left unresolved at the end of any session — send a push notification listing them,
+so the user never has to poll to find out their decision is blocking progress.
+
+## The plan lives in Workflowy
+
+| Level | Workflowy item | Maps to |
+|---|---|---|
+| 1 | this repository (name matches the GitHub repo) | never auto-synced |
+| 2 | project — one phase of iterative development | one GitHub Project + `docs/<project-slug>/` |
+| 3 | feature — one shippable slice; its **note** is the feature description | one `feature`-labelled GitHub issue (body = the note), built by `/implement` |
+| 4+ | notes, edge cases, open questions, later/maybe | raw material for discovery; never synced |
+
+`/discover <project>` decides which features a project contains (level-3 names + stub notes).
+`/kickoff <feature>` settles one of them with you, writes the description into its note —
+`## Goal`, `## Acceptance criteria`, `## Out of scope` — and creates the GitHub issue with that
+note as the body verbatim. `/implement <issue>` then builds it.
+
+Workflowy is the source of truth for the *plan*, `docs/` for the *product truth*, GitHub Issues
+and Projects for *execution*. Item names stay ≤ 15 words; detail goes in the item's note.
+Writes need `WORKFLOWY_API_KEY` (from `.env`, never printed) and are dry-run until the user says
+go. Never delete, move, or complete a Workflowy node.
 
 ## Definition of Done (per feature issue)
 
@@ -54,8 +74,16 @@ These run without a human gate and never block or reopen a feature:
 
 ## Ivan project config
 
-<!-- Filled by /adopt and /kickoff. Every pipeline phase reads this section. -->
+<!-- Filled by /adopt, /discover, and /kickoff. Every pipeline phase reads this section. -->
 - GitHub: <owner>/<repo>
 - Stack: <stack, or "open — decided during /discover">
-- Projects board: (created during /kickoff)
-- Status field IDs: (recorded during /kickoff)
+- Workflowy root: <short id> (level-1 item "<repo>")
+- Active project: (set by /discover)
+
+### Projects
+
+<!-- One row per Workflowy level-2 project. /discover adds the row; /kickoff fills the board IDs. -->
+
+| Project (Workflowy level 2) | wf short id | Docs folder | Board # | Project ID | Status field / Todo / In Progress / Done |
+|---|---|---|---|---|---|
+| | | | | | |

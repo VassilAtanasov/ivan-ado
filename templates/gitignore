@@ -28,3 +28,7 @@ Thumbs.db
 
 # Local-only Claude settings (machine-specific overrides)
 .claude/settings.local.json
+
+# Secrets (WORKFLOWY_API_KEY lives here)
+.env
+.env.local
