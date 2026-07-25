@@ -36,8 +36,10 @@ the remaining ones in outline order, a full run each — never batch the intervi
    and `ARCHITECTURE.md` plus the repo-wide `docs/ARCHITECTURE.md`. The feature must fit the
    architecture already decided; if it can't, that is a finding to raise, not to design around
    silently. If the project docs are missing or half-filled, send the user back to `/discover`.
-5. If an open issue already exists for this feature, say so and ask whether to refine the note and
-   update that issue, or stop. Never create a duplicate.
+5. If an open issue already exists for this feature (one call:
+   `gh issue list --repo <owner>/<repo> --label feature --state open --limit 100 --json
+   number,title`, matched on title), say so and ask whether to refine the note and update that
+   issue, or stop. Never create a duplicate.
 
 ## 1. Interview
 
@@ -98,17 +100,22 @@ unanswered question blocks the issue rather than becoming a guess in the build.
 
 ## 4. Tracking infrastructure (idempotent — skip what already exists)
 
-- Label: `gh label create feature --color 1D76DB --description "Feature backlog item"`
+Follow the **GitHub access** rules in CLAUDE.md for every `gh` call.
+
+- Label: `gh label create feature --repo <owner>/<repo> --color 1D76DB --description "Feature
+  backlog item" --force` — `--force` is required, plain `create` fails once the label exists.
 - Board: one GitHub Project **per Workflowy project**, titled exactly as the level-2 item. Look it
-  up in the registry first; else `gh project list --owner <owner> --format json` by exact title;
-  else `gh project create --owner <owner> --title "<project name>"` +
+  up in the registry first (and skip the rest if it's there); else
+  `gh project list --owner <owner> --limit 100 --format json` by exact title; else
+  `gh project create --owner <owner> --title "<project name>" --format json` +
   `gh project link <number> --owner <owner> --repo <owner>/<repo>`. If a board with that title
   already exists, use it as-is — never edit an existing board's title, description, readme, or
   repo link.
 - On first creation, RECORD the IDs in the project's registry row in CLAUDE.md (so no later
-  session rediscovers them): project number, project ID (`gh project view <n> --format json`),
+  session rediscovers them): project number, project ID
+  (`gh project view <n> --owner <owner> --format json`),
   Status field ID and the option IDs for Todo / In Progress / Done
-  (`gh project field-list <n> --format json`). Commit the CLAUDE.md update.
+  (`gh project field-list <n> --owner <owner> --format json`). Commit the CLAUDE.md update.
 - On first creation, tell the user to enable two built-in workflows in the board UI (not
   scriptable): Projects → board → ⋯ → Workflows → enable **Auto-add to project** (issues in the
   repo) and **Item closed → Done**. With several boards on one repo, auto-add fires for every
@@ -124,10 +131,14 @@ unanswered question blocks the issue rather than becoming a guess in the build.
 - Title = the Workflowy item name (imperative feature name).
 - Body = **the note verbatim** — you just wrote it in issue-body shape. Do not rewrite, summarize,
   or add source metadata; traceability lives in the FR-N entry in REQUIREMENTS.md.
-- `gh issue create --label feature ...`, then `gh project item-add <number> --owner <owner> --url
-  <issue-url>` and set Status to Todo.
-- If refining an existing issue (step 0.5), `gh issue edit` the body instead — only while its
-  status is still Todo. Once it is In Progress or Done, leave it alone and tell the user.
+- `gh issue create --repo <owner>/<repo> --label feature --title "<name>" --body-file <file>` —
+  write the note to a temp file and use `--body-file`, never `--body`, so backticks, quotes, and
+  `#` in the description survive the shell intact. Then
+  `gh project item-add <number> --owner <owner> --url <issue-url>` and set Status to Todo using
+  the registry's field and option IDs.
+- If refining an existing issue (step 0.5), `gh issue edit <N> --repo <owner>/<repo> --body-file
+  <file>` instead — only while its status is still Todo. Once it is In Progress or Done, leave it
+  alone and tell the user.
 
 ## 6. Hand off
 

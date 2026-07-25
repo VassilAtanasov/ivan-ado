@@ -10,12 +10,21 @@ Everything here is idempotent — detect what already exists and only add what's
 This skill's templates live in this plugin's `templates/` directory (resolve it relative to this
 SKILL.md file's location: `../../templates/`).
 
-## 1. Repo
+## 1. Repo and GitHub auth
 
 - `git init -b main` if not a repo.
 - Ensure a GitHub remote: if none, ask the user (AskUserQuestion) whether to create
   `gh repo create <name> --private|--public --source . --push` or connect an existing repo URL.
 - Ensure a `.gitignore` fitting the stack (start from the template, extend per stack).
+- **Auth preflight — do it now, not when /kickoff fails halfway through.** Run `gh auth status`,
+  then prove Projects access with `gh project list --owner <owner> --limit 1`. If that call fails
+  with "Resource not accessible by personal access token", stop and tell the user which fix
+  applies:
+  - a classic PAT needs the `project` scope (`gh auth refresh --scopes project`);
+  - a fine-grained PAT needs **Projects: Read and write**;
+  - and if `GITHUB_TOKEN`/`GH_TOKEN` is set in the environment, `gh` uses it in preference to its
+    keyring and `gh auth refresh` cannot upgrade it — the variable has to be fixed or unset.
+  Record the outcome in the Ivan project config so later phases don't re-check.
 
 ## 2. Quality machinery (copy from templates, then adapt)
 
@@ -64,6 +73,7 @@ contract and the CLI (`../../scripts/workflowy_cli.py` relative to this SKILL.md
   ```
   ## Ivan project config
   - GitHub: <owner>/<repo>
+  - GitHub auth: <verified DD-MM-YYYY: issues/PRs + Projects v2 accessible>
   - Stack: <from user/architecture; "open — decided during /discover" is valid>
   - Workflowy root: <short id> (level-1 item "<repo>")
   - Active project: (set by /discover)
@@ -81,7 +91,10 @@ contract and the CLI (`../../scripts/workflowy_cli.py` relative to this SKILL.md
 2. Simulate a failure (e.g. a deliberately broken file where the gate looks) and pipe
    `'{"stop_hook_active": false}'` into `.claude/hooks/stop-gate.ps1` → must exit 2 with the gate
    output. Clean up.
-3. Commit everything, push, confirm the CI run goes green (`gh run list`).
+3. Commit everything, push, then confirm CI goes green with
+   `gh run watch --repo <owner>/<repo>` — it blocks until the run finishes. Do not use
+   `gh run list` here: immediately after a push the run may not exist yet, so listing once races
+   it and reports the previous run (or nothing).
 
 ## 7. Hand off
 

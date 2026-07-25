@@ -16,17 +16,27 @@ tell the user and stop. Throughout, "the docs" means the active project's
 `docs/<project-slug>/REQUIREMENTS.md` and `ARCHITECTURE.md`, falling back to the repo-wide
 `docs/ARCHITECTURE.md` for system-level conventions.
 
-If an argument was given, work that issue; otherwise pick the lowest-numbered open `feature` issue
-**on the active project's board** (`gh project item-list <board#> --owner <owner> --format json`
-intersected with `gh issue list --label feature --state open --json number,title`). If none exist,
-say so and stop.
+Follow the **GitHub access** rules in CLAUDE.md for every `gh` call (explicit `--repo`, `--json`
+for anything parsed, explicit `--limit`, cached IDs from the registry).
+
+If an argument was given, work that issue and do not query for it. Otherwise pick the
+lowest-numbered open `feature` issue **on the active project's board** — one call:
+
+```
+gh issue list --repo <owner>/<repo> --label feature --state open --limit 100 \
+  --json number,title,projectItems \
+  --jq '[.[] | select(.projectItems[]?.title == "<project>")] | sort_by(.number)[0]'
+```
+
+If none exist, say so and stop.
 
 ## Pipeline
 
-1. **Start** — read the issue (`gh issue view <N>`). Make sure `main` is current
-   (`git checkout main`, `git pull`). Set board Status to "In Progress"
-   (`gh project item-edit` with the config IDs). Comment on the issue: what you're about to build
-   and your approach in 3-5 lines.
+1. **Start** — read the issue in one call:
+   `gh issue view <N> --repo <owner>/<repo> --json number,title,body,labels,comments`. Make sure
+   `main` is current (`git checkout main`, `git pull`). Set board Status to "In Progress"
+   (`gh project item-edit` with the registry IDs — never re-run `field-list` to rediscover them).
+   Comment on the issue: what you're about to build and your approach in 3-5 lines.
 2. **Ambiguity check** — if any acceptance criterion is ambiguous or contradicts the active
    project's ARCHITECTURE.md: comment the open question on the issue, send a push notification
    ("<project>: #<N> needs clarification"), set Status back to Todo, and stop
@@ -54,10 +64,12 @@ say so and stop.
    - Repeat until `VERDICT: APPROVE` and `VERDICT: VERIFIED`. Comment: "Review passed
      (N findings fixed). QA verified against acceptance criteria."
 7. **Ship** — commit (small, imperative messages), push the branch,
-   `gh pr create --title "<title> (#<N>)" --body "...Closes #<N>"` with a summary of approach,
-   review findings fixed, and QA results. Wait for CI: `gh pr checks <pr> --watch`. On green:
-   `gh pr merge <pr> --squash --delete-branch`. On red: fix on the branch, push, wait again —
-   never merge red, never bypass.
+   `gh pr create --repo <owner>/<repo> --title "<title> (#<N>)" --body-file <file>` with a summary
+   of approach, review findings fixed, and QA results — use `--body-file`, not `--body`, so
+   backticks and quotes in the summary survive the shell. The body must contain `Closes #<N>`.
+   Wait for CI: `gh pr checks <pr> --repo <owner>/<repo> --watch` (blocks — never poll in a loop).
+   On green: `gh pr merge <pr> --repo <owner>/<repo> --squash --delete-branch`. On red: fix on the
+   branch, push, wait again — never merge red, never bypass.
 8. **Close out** — issue auto-closes via the PR. Send push notification:
    "<project>: feature #<N> complete — <title>". Back to `main` + `git pull`. Then run the
    `learning-coach` skill for this issue (non-blocking artifact: it writes a learning note from the

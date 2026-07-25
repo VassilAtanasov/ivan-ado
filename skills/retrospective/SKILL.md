@@ -8,20 +8,24 @@ description: Ivan captures lessons after a run - what shipped, what caused rewor
 You are Ivan in **build mode**: autonomous. This runs with **no human gate** — it produces a
 durable record and files follow-ups itself, then notifies. Never ask the user to approve it.
 
-Read the `## Ivan project config` section of the project's CLAUDE.md for GitHub owner/repo and the
-Projects board IDs. If missing, tell the user the run order is /adopt → /discover → /kickoff and stop.
+Read the `## Ivan project config` section of the project's CLAUDE.md for GitHub owner/repo, the
+active project, and that project's registry row (board number, project ID, Status field and option
+IDs). If missing, tell the user the run order is /adopt → /discover → /kickoff → /implement and
+stop. Follow the **GitHub access** rules in CLAUDE.md for every `gh` call.
 
 Scope: the just-finished `/autopilot` run when invoked at the end of one; otherwise the merged work
-since the last retrospective entry (`gh pr list --state merged --limit 20 --json number,title,mergedAt,body`).
+since the last retrospective entry (`gh pr list --repo <owner>/<repo> --state merged --limit 20
+--json number,title,mergedAt,body,closingIssuesReferences`).
 
 ## 1. Gather the facts (read-only)
 
 - What shipped: merged PRs this run and the issues they closed.
 - What was skipped-for-clarification (the never-guess path) and what tripped the circuit breaker.
 - Rework signal: for each shipped issue, how many gate/review/verify cycles it took — read the issue
-  timeline comments Ivan left (`gh issue view <N> --comments`). Repeated review findings across
-  issues are the highest-value signal.
-- `main` health: `gh run list --branch main --limit 1`.
+  timeline comments Ivan left (`gh issue view <N> --repo <owner>/<repo> --json number,title,comments`).
+  Repeated review findings across issues are the highest-value signal.
+- `main` health:
+  `gh run list --repo <owner>/<repo> --branch main --limit 1 --json status,conclusion,headSha`.
 
 ## 2. Distill (short and concrete)
 
@@ -37,8 +41,13 @@ scope, deferred TODOs left in the code, doc gaps, or a recurring review finding 
 rule. Skip speculative ideas.
 
 - Label them `follow-up`, **never** `feature`:
-  `gh label create follow-up --color FBCA04 --description "Retrospective follow-up (not auto-built)" ` (idempotent),
-  then `gh issue create --label follow-up ...`, and add to the board.
+  `gh label create follow-up --repo <owner>/<repo> --color FBCA04 --description "Retrospective
+  follow-up (not auto-built)" --force` (`--force` is what makes it idempotent — plain `create`
+  fails once the label exists), then
+  `gh issue create --repo <owner>/<repo> --label follow-up --title "<title>" --body-file <file>`
+  (`--body-file`, not `--body`, so code snippets in the description survive the shell), then
+  `gh project item-add <board#> --owner <owner> --url <issue-url>` using the active project's
+  registry row.
 - Rationale — keep this boundary: `/autopilot` drains `--label feature` only, so `follow-up` items
   are captured without being auto-built. That keeps capture fully autonomous while keeping the
   autonomous build scope bounded. Promoting one to `feature` is the user's call, not a gate on this skill.

@@ -9,15 +9,23 @@ You are Ivan in **build mode**, fully autonomous. You drain **one project's** ba
 project in the `## Ivan project config` registry, or the one named as the argument (set it active
 before starting). Loop:
 
-1. List the open `feature` issues on that project's board (`gh project item-list <board#> --owner
-   <owner> --format json` ∩ `gh issue list --label feature --state open`) — if empty, this phase is
-   done: post a summary (features shipped this run, PRs merged, anything skipped), send a push
-   notification ("<project>: <phase> complete — N features shipped"), then run the `retrospective`
-   skill to record lessons and file follow-ups before ending the run. If the Workflowy outline has
-   a next level-2 project, name it in the summary and tell the user to run `/discover <next>` —
-   do not start it yourself.
+1. List the open `feature` issues on that project's board — **one call** (see the GitHub access
+   rules in CLAUDE.md):
+
+   ```
+   gh issue list --repo <owner>/<repo> --label feature --state open --limit 100 \
+     --json number,title,projectItems \
+     --jq '[.[] | select(.projectItems[]?.title == "<project>")] | sort_by(.number)'
+   ```
+
+   If empty, this phase is done: post a summary (features shipped this run, PRs merged, anything
+   skipped), send a push notification ("<project>: <phase> complete — N features shipped"), then
+   run the `retrospective` skill to record lessons and file follow-ups before ending the run. If
+   the Workflowy outline has a next level-2 project, name it in the summary and tell the user to
+   run `/discover <next>` — do not start it yourself.
 2. Run the full `/implement` pipeline (the `implement` skill of this plugin) on the
-   lowest-numbered open issue on that board.
+   lowest-numbered open issue from step 1, **passing the issue number explicitly** so it does not
+   re-run the query you just ran.
 3. Outcomes:
    - **Merged** → next iteration.
    - **Skipped for clarification** (ambiguity rule) → next iteration; collect it for the final summary.
@@ -29,5 +37,6 @@ Rules:
 - One issue at a time, always to completion or explicit skip — never interleave branches.
 - If every remaining issue is in the skipped-for-clarification set, stop and summarize instead of
   spinning, then run the `retrospective` skill.
-- Between issues, verify `main` is green (`gh run list --branch main --limit 1`); if main is
-  somehow red, fixing main IS the next task before any new feature.
+- Between issues, verify `main` is green
+  (`gh run list --repo <owner>/<repo> --branch main --limit 1 --json status,conclusion`); if main
+  is somehow red, fixing main IS the next task before any new feature.
