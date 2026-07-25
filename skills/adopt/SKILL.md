@@ -16,6 +16,10 @@ SKILL.md file's location: `../../templates/`).
 - Ensure a GitHub remote: if none, ask the user (AskUserQuestion) whether to create
   `gh repo create <name> --private|--public --source . --push` or connect an existing repo URL.
 - Ensure a `.gitignore` fitting the stack (start from the template, extend per stack).
+- Copy the `gitattributes` template → `.gitattributes` if absent. It normalises line endings so a
+  Windows working tree and a Linux CI runner agree; without it, format checks pass locally and fail
+  in CI (or the reverse). If the repo already has files committed with mixed endings, run
+  `git add --renormalize .` and commit that separately.
 - **Auth preflight — do it now, not when /kickoff fails halfway through.** Run `gh auth status`,
   then prove Projects access with `gh project list --owner <owner> --limit 1`. If that call fails
   with "Resource not accessible by personal access token", stop and tell the user which fix
@@ -28,7 +32,8 @@ SKILL.md file's location: `../../templates/`).
 
 ## 2. Quality machinery (copy from templates, then adapt)
 
-- `gate.ps1` → project root. The template auto-detects `server/*.sln` and `client/package.json`;
+- `gate.ps1` → project root. The template auto-detects `server/*.sln[x]` (the .NET 10 SDK's
+  `dotnet new sln` produces `.slnx`) and `client/package.json`;
   if the project's stack (ask, or read docs/ARCHITECTURE.md if present) differs, adapt the
   detection and steps NOW — the gate must fail loudly on broken code and pass trivially when the
   relevant code doesn't exist yet.
@@ -39,6 +44,36 @@ SKILL.md file's location: `../../templates/`).
   the stack) + destructive-command denies. Never overwrite unrelated existing settings.
 - `ci.yml` → `.github/workflows/ci.yml`, adapted to the stack's runtimes. CI must run the same
   `gate.ps1`.
+
+## 2b. Coding standards (stack-dependent — install only what matches)
+
+Determine the stack first (ask, or read docs/ARCHITECTURE.md). If the stack is still open, skip this
+section and run it at the end of `/discover` once the stack is decided.
+
+**Conventions doc (every stack).** Concatenate the matching files from this plugin's
+`references/conventions/` (`csharp.md`, `python.md`, `typescript-react.md`) into the project's
+`docs/CONVENTIONS.md`, each under a `# <stack>` heading. A full-stack project gets more than one.
+If the stack has no file here, write the section yourself in the same shape — judgement rules only,
+never formatting — and note which linter owns the rest. CLAUDE.md's `## Coding standards` section
+already points every phase at this file; the code-reviewer reads it on every diff.
+
+**Enforcement config, per stack.** The principle: the linter/compiler enforces everything it can, and
+the gate fails on it — so Ivan never has to remember a rule a machine could check.
+
+- **.NET** — copy `templates/dotnet/editorconfig` → repo root `.editorconfig` and
+  `templates/dotnet/Directory.Build.props` → the .NET source root (e.g. `server/`). Adjust
+  `TargetFramework` to the installed SDK. If `.editorconfig` already exists, merge the
+  `dotnet_diagnostic.*` and naming rules in rather than overwriting. Add `coverlet.collector` to test
+  projects if you want the gate's coverage step (it is skipped when absent).
+- **Python** — ensure `ruff` (format + lint) and `mypy`/`pyright` strict are configured in
+  `pyproject.toml`, and that `gate.ps1` runs `ruff format --check`, `ruff check`, the type checker,
+  and `pytest` as a Python leg.
+- **TypeScript / Next.js** — ensure `strict: true` in `tsconfig.json`, ESLint with
+  `@typescript-eslint` (including `no-floating-promises`, which needs type-aware linting) and
+  `eslint-plugin-react-hooks`, and Prettier. The template gate's client leg already runs typecheck,
+  lint and tests.
+
+Warnings are errors in every stack — the gate must not go green on a warning.
 
 ## 3. Workflowy (the planning source of truth)
 
@@ -91,7 +126,11 @@ contract and the CLI (`../../scripts/workflowy_cli.py` relative to this SKILL.md
 2. Simulate a failure (e.g. a deliberately broken file where the gate looks) and pipe
    `'{"stop_hook_active": false}'` into `.claude/hooks/stop-gate.ps1` → must exit 2 with the gate
    output. Clean up.
-3. Commit everything, push, then confirm CI goes green with
+3. Prove the standards are enforced, not just documented: introduce one deliberate violation the
+   linter owns (a `var` where the .editorconfig forbids it and an unused private field for .NET; an
+   `any` for TypeScript; an unannotated function for Python), run `./gate.ps1` → must go **red** on
+   that rule. Revert. Skip only if the stack has no application code yet, and say so.
+4. Commit everything, push, then confirm CI goes green with
    `gh run watch --repo <owner>/<repo>` — it blocks until the run finishes. Do not use
    `gh run list` here: immediately after a push the run may not exist yet, so listing once races
    it and reports the previous run (or nothing).

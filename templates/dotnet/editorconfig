@@ -1,0 +1,146 @@
+# Copied by /adopt to the repository root as `.editorconfig` when the stack includes .NET.
+# With EnforceCodeStyleInBuild (see Directory.Build.props), every `warning` here is a build error
+# under gate.ps1's `dotnet build -warnaserror`. Judgement rules the compiler cannot check live in
+# the project's docs/CONVENTIONS.md.
+
+root = true
+
+# Deliberately no `end_of_line` or `charset` here. Ivan authors on Windows and CI runs on Linux;
+# pinning either makes `dotnet format --verify-no-changes` fail on every file for reasons unrelated
+# to the change. Line endings are git's job — see the .gitattributes template.
+[*]
+indent_style = space
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{json,yml,yaml,xml,csproj,props,targets}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+max_line_length = 120
+
+#### Language conventions ####
+
+# Modern C# — file-scoped namespaces, pattern matching, expression-bodied members where they read.
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace:warning
+csharp_prefer_braces = true:warning
+csharp_prefer_simple_using_statement = true:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion
+csharp_style_pattern_matching_over_is_with_cast_check = true:warning
+csharp_style_pattern_matching_over_as_with_null_check = true:warning
+csharp_style_prefer_not_pattern = true:warning
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:warning
+
+# var: explicit types for built-ins, var where the type is already on the line.
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# Null handling — these back the nullability rules in CONVENTIONS.md.
+dotnet_style_coalesce_expression = true:warning
+dotnet_style_null_propagation = true:warning
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+
+# Immutability and clarity.
+dotnet_style_readonly_field = true:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+
+# Dead code is a defect, not a style preference.
+dotnet_diagnostic.IDE0051.severity = warning   # unused private member
+dotnet_diagnostic.IDE0052.severity = warning   # unread private member
+dotnet_diagnostic.IDE0005.severity = warning   # unnecessary using directive
+dotnet_diagnostic.CS0168.severity = warning    # declared but never used
+dotnet_diagnostic.CA1801.severity = suggestion # unused parameter (noisy on interface impls)
+
+#### Analyzer rules that carry real bugs ####
+
+# Async correctness.
+dotnet_diagnostic.CA2007.severity = none       # ConfigureAwait — off for app code; on in libraries
+dotnet_diagnostic.CA1849.severity = warning    # sync call inside async method
+dotnet_diagnostic.CA2016.severity = warning    # forward CancellationToken
+dotnet_diagnostic.CA2012.severity = warning    # ValueTask consumed incorrectly
+dotnet_diagnostic.VSTHRD002.severity = warning # blocking .Result/.Wait() (if analyzer present)
+
+# Disposal and resources.
+dotnet_diagnostic.CA1001.severity = warning    # type owns disposable fields but isn't disposable
+dotnet_diagnostic.CA2000.severity = warning    # dispose objects before losing scope
+dotnet_diagnostic.CA2213.severity = warning    # disposable field not disposed
+
+# Correctness / API surface.
+dotnet_diagnostic.CA1062.severity = warning    # validate public arguments
+dotnet_diagnostic.CA1305.severity = warning    # specify IFormatProvider
+dotnet_diagnostic.CA1310.severity = warning    # StringComparison on culture-sensitive compare
+dotnet_diagnostic.CA1848.severity = suggestion # LoggerMessage delegates (perf, not correctness)
+dotnet_diagnostic.CA2201.severity = warning    # don't raise reserved exception types
+dotnet_diagnostic.CA2208.severity = warning    # argument exceptions carry the parameter name
+dotnet_diagnostic.CA1063.severity = warning    # implement IDisposable correctly
+
+# Security.
+dotnet_diagnostic.CA2100.severity = warning    # SQL built from a possibly-unsafe string
+dotnet_diagnostic.CA3075.severity = warning    # insecure DTD processing
+dotnet_diagnostic.CA5350.severity = warning    # weak cryptographic algorithm
+dotnet_diagnostic.CA5351.severity = warning    # broken cryptographic algorithm
+
+#### Naming ####
+
+dotnet_naming_rule.interfaces_start_with_i.symbols = interface_symbols
+dotnet_naming_rule.interfaces_start_with_i.style = prefix_i_pascal
+dotnet_naming_rule.interfaces_start_with_i.severity = warning
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_style.prefix_i_pascal.required_prefix = I
+dotnet_naming_style.prefix_i_pascal.capitalization = pascal_case
+
+dotnet_naming_rule.types_are_pascal.symbols = type_symbols
+dotnet_naming_rule.types_are_pascal.style = pascal
+dotnet_naming_rule.types_are_pascal.severity = warning
+dotnet_naming_symbols.type_symbols.applicable_kinds = class,struct,enum,delegate,namespace
+dotnet_naming_style.pascal.capitalization = pascal_case
+
+dotnet_naming_rule.public_members_are_pascal.symbols = public_member_symbols
+dotnet_naming_rule.public_members_are_pascal.style = pascal
+dotnet_naming_rule.public_members_are_pascal.severity = warning
+dotnet_naming_symbols.public_member_symbols.applicable_kinds = property,method,event
+dotnet_naming_symbols.public_member_symbols.applicable_accessibilities = public,protected
+
+dotnet_naming_rule.private_fields_are_underscore_camel.symbols = private_field_symbols
+dotnet_naming_rule.private_fields_are_underscore_camel.style = underscore_camel
+dotnet_naming_rule.private_fields_are_underscore_camel.severity = warning
+dotnet_naming_symbols.private_field_symbols.applicable_kinds = field
+dotnet_naming_symbols.private_field_symbols.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+dotnet_naming_rule.async_methods_end_in_async.symbols = async_method_symbols
+dotnet_naming_rule.async_methods_end_in_async.style = suffix_async
+dotnet_naming_rule.async_methods_end_in_async.severity = warning
+dotnet_naming_symbols.async_method_symbols.applicable_kinds = method
+dotnet_naming_symbols.async_method_symbols.required_modifiers = async
+dotnet_naming_style.suffix_async.required_suffix = Async
+dotnet_naming_style.suffix_async.capitalization = pascal_case
+
+#### Tests — same correctness rules, relaxed on the ones that fight test code ####
+
+[**/{*Tests,*.Tests,*IntegrationTests,tests}/**/*.cs]
+dotnet_diagnostic.CA1062.severity = none       # arguments are test-controlled
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1707.severity = none       # underscores in test method names are the convention
+dotnet_diagnostic.CA1861.severity = none       # inline arrays in test data
+dotnet_naming_rule.async_methods_end_in_async.severity = none

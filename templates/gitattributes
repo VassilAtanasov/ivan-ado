@@ -1,0 +1,28 @@
+# Normalise line endings in the repository so a Windows working tree and a Linux CI runner agree.
+# Without this, any editor/formatter check that is sensitive to line endings goes red in CI only.
+* text=auto eol=lf
+
+# Windows-only tooling that must keep CRLF to run.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts must keep LF even on Windows.
+*.sh text eol=lf
+
+# Binary — never normalise, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.snk binary
+*.dll binary
+*.exe binary

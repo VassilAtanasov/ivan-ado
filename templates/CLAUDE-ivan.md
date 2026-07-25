@@ -84,6 +84,26 @@ A feature is done only when ALL of these hold:
 
 Never merge on red CI. Never close an issue by hand — the PR merge closes it.
 
+## Coding standards
+
+`docs/CONVENTIONS.md` holds this project's per-stack coding conventions — read it before writing
+code, and treat a violation as a defect, not a preference. It contains only judgements the tooling
+cannot make; formatting, style and analyzer rules are owned by the linters and enforced by
+`gate.ps1`, so never argue with them, fix the code.
+
+These hold in every stack:
+
+- Never weaken a check to make it pass. Suppressions (`#pragma`, `# type: ignore`,
+  `@ts-expect-error`, `!`, `as any`, disabled lint rules, `-warnaserror` exclusions) require a
+  comment naming the concrete constraint that forces them — otherwise fix the underlying cause.
+- Model absence and failure in the type system rather than in comments or convention.
+- Validate anything crossing a trust boundary (network, form, file, env) at the boundary; never cast
+  untrusted data into shape.
+- No secrets in source, logs, or client-visible configuration.
+- Test behaviour, not implementation. A test asserting only that a mock was called is hollow.
+  Every bug fix lands with a test that fails without the fix.
+- Dead code is deleted, not commented out — git remembers it.
+
 ## Pipeline etiquette (build mode)
 
 - Comment on the issue at each stage: started / gate green / review done / PR opened. The issue

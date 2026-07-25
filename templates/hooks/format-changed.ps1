@@ -12,7 +12,9 @@ try {
 
     switch ($ext) {
         '.cs' {
-            $sln = Get-ChildItem -Path (Join-Path $repoRoot 'server') -Filter '*.sln' | Select-Object -First 1
+            # -Include needs the trailing \* to match without -Recurse. .slnx is the .NET 10 format.
+            $sln = Get-ChildItem -Path (Join-Path (Join-Path $repoRoot 'server') '*') -Include '*.sln', '*.slnx' -File |
+                Sort-Object Extension | Select-Object -First 1
             if ($sln) { dotnet format $sln.FullName --include $file --verbosity quiet | Out-Null }
         }
         { $_ -in '.ts', '.tsx', '.css', '.json' } {

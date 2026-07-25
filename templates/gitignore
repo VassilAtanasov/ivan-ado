@@ -20,6 +20,9 @@ coverage/
 # Quality gate success stamp (local cache, machine-specific)
 .gate-stamp
 
+# Coverage output written by the gate's server leg
+.coverage/
+
 # Editors / OS
 .idea/
 *.swp

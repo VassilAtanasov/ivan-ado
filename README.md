@@ -46,10 +46,15 @@ Workflowy and Ivan drains them one at a time:
 
 ## Quality guarantees
 
-1. **One gate script** (`gate.ps1`) — build (warnings-as-errors), tests, typecheck, lint — run locally, by the Stop hook, and by CI. Server and client legs run in parallel; a green run stamps the working tree (`.gate-stamp`).
+1. **One gate script** (`gate.ps1`) — format check, build (warnings-as-errors), tests, typecheck, lint, optional coverage floor (`GATE_COVERAGE_MIN`) — run locally, by the Stop hook, and by CI. Server and client legs run in parallel; a green run stamps the working tree (`.gate-stamp`).
 2. **Stop hook** — Ivan cannot end a working turn while the gate fails; the failure is fed back until fixed. Skips the re-run when the tree already matches the last green stamp.
 3. **Fresh-context subagents** — `code-reviewer` (read-only, adversarial, no memory of writing the code) and `qa-verifier` (exercises the real running app per acceptance criterion).
 4. **GitHub Actions CI** — same gate re-runs on every PR; merging on red is forbidden.
+5. **Coding standards, machine-enforced first** — `/adopt` installs the stack's linter/compiler
+   config (for .NET: `.editorconfig` + `Directory.Build.props`, so analyzer and style rules become
+   build errors) and writes the judgement rules the tooling *can't* check into `docs/CONVENTIONS.md`,
+   which the code-reviewer reads on every diff. Conventions ship for C#, Python and
+   TypeScript/React/Next.js; other stacks get one written in the same shape.
 
 ## Tracking & notifications
 
@@ -92,7 +97,8 @@ claude plugin marketplace update ivan-sdlc
 ```
 
 All projects on the machine pick up the new version at their next session. Template files
-already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml) are refreshed by re-running
+already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml, conventions, stack lint config)
+are refreshed by re-running
 `/adopt` in that project.
 
 ## Layout
@@ -104,7 +110,10 @@ skills/                      adopt, discover, kickoff, implement, autopilot, ret
 agents/                      code-reviewer, qa-verifier
 scripts/                     workflowy_cli.py (Workflowy API helper used by discover + kickoff)
 references/                  workflowy.md (API notes + the repo→project→feature outline contract)
-templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, doc skeletons
+references/conventions/      per-stack coding conventions installed as docs/CONVENTIONS.md by /adopt
+templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, gitignore,
+                             gitattributes, doc skeletons
+templates/dotnet/            .editorconfig + Directory.Build.props (installed only for .NET stacks)
 ```
 
 Reference implementation: https://github.com/VassilAtanasov/Mills

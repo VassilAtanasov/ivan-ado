@@ -60,24 +60,74 @@ $legRunner = {
     [PSCustomObject]@{ Leg = $LegName; Failures = $failures; Transcript = ($lines -join "`n") }
 }
 
-$solution = Get-ChildItem -Path (Join-Path $repoRoot 'server') -Filter '*.sln' -ErrorAction SilentlyContinue | Select-Object -First 1
+# .slnx (the XML solution format) is what `dotnet new sln` produces on the .NET 10 SDK; .sln is the
+# classic format. Match both, or a fresh .NET 10 repo looks like "no application code" forever.
+# (-Include needs a wildcard path to match without -Recurse; .sln sorts before .slnx if both exist.)
+$solution = Get-ChildItem -Path (Join-Path (Join-Path $repoRoot 'server') '*') -Include '*.sln', '*.slnx' -File -ErrorAction SilentlyContinue |
+    Sort-Object Extension | Select-Object -First 1
 $clientPkg = Test-Path (Join-Path (Join-Path $repoRoot 'client') 'package.json')
 
 if (-not $solution -and -not $clientPkg) {
-    Write-Host "GATE: no application code yet (no server/*.sln, no client/package.json) - gate passes trivially." -ForegroundColor Green
+    Write-Host "GATE: no application code yet (no server/*.sln[x], no client/package.json) - gate passes trivially." -ForegroundColor Green
     exit 0
 }
 
 $legs = @()
 
 if ($solution) {
-    $legs += @{
-        Name  = 'server'
-        Steps = @(
-            @{ Name = 'dotnet build (warnings as errors)'; WorkDir = $repoRoot; Command = "dotnet build `"$($solution.FullName)`" -warnaserror --nologo" },
-            @{ Name = 'dotnet test'; WorkDir = $repoRoot; Command = "dotnet test `"$($solution.FullName)`" --nologo --no-build" }
-        )
+    $sln = $solution.FullName
+    $serverSteps = @(
+        # Formatting drift fails here rather than depending on the PostToolUse hook having fired.
+        # Style/analyzer rules themselves are enforced by the build: .editorconfig severities are
+        # promoted to build diagnostics by EnforceCodeStyleInBuild in Directory.Build.props.
+        @{ Name = 'dotnet format (verify)'; WorkDir = $repoRoot; Command = "dotnet format `"$sln`" --verify-no-changes --verbosity minimal" },
+        @{ Name = 'dotnet build (warnings as errors)'; WorkDir = $repoRoot; Command = "dotnet build `"$sln`" -warnaserror --nologo" }
+    )
+
+    # Coverage runs only when the test projects actually reference coverlet.collector, so this
+    # degrades to a plain `dotnet test` in projects that have not opted in.
+    $serverDir = Join-Path $repoRoot 'server'
+    $hasCoverlet = $false
+    $projFiles = @(Get-ChildItem -Path $serverDir -Filter '*.csproj' -Recurse -ErrorAction SilentlyContinue)
+    if ($projFiles.Count -gt 0) {
+        $hasCoverlet = [bool](Select-String -Path $projFiles.FullName -Pattern 'coverlet\.collector' -SimpleMatch:$false -Quiet -ErrorAction SilentlyContinue)
     }
+
+    # Minimum line coverage percentage. 0 = report only. Raise it via the environment (CI or shell)
+    # once the suite is established; the gate then fails when coverage drops below it.
+    $coverageMin = 0
+    if ($env:GATE_COVERAGE_MIN) { $coverageMin = [double]$env:GATE_COVERAGE_MIN }
+
+    if ($hasCoverlet) {
+        $coverageDir = Join-Path $repoRoot '.coverage'
+        # Note: the leg runner discards a step's collected output if the step throws, so the test
+        # transcript is carried in the exception message rather than written to the pipeline.
+        $coverageCmd = @'
+Remove-Item -Recurse -Force "__DIR__" -ErrorAction SilentlyContinue
+$testOut = @(dotnet test "__SLN__" --nologo --no-build --results-directory "__DIR__" --collect "XPlat Code Coverage" 2>&1 | ForEach-Object { "$_" })
+$testExit = $LASTEXITCODE
+function Fail([string]$Reason) { throw (($testOut + $Reason) -join "`n") }
+if ($testExit -ne 0) { Fail "dotnet test failed (exit $testExit)" }
+$reports = @(Get-ChildItem -Path "__DIR__" -Recurse -Filter 'coverage.cobertura.xml' -ErrorAction SilentlyContinue)
+if ($reports.Count -eq 0) { Fail "coverage: no cobertura report was produced" }
+$covered = 0; $total = 0
+foreach ($r in $reports) {
+    $xml = [xml](Get-Content $r.FullName -Raw)
+    $covered += [int]$xml.coverage.GetAttribute('lines-covered')
+    $total   += [int]$xml.coverage.GetAttribute('lines-valid')
+}
+$pct = if ($total -gt 0) { [math]::Round(100.0 * $covered / $total, 2) } else { 0 }
+$summary = "coverage: $pct% ($covered/$total lines, minimum __MIN__%)"
+if ($pct -lt __MIN__) { Fail $summary }
+$testOut + $summary
+'@
+        $coverageCmd = $coverageCmd.Replace('__DIR__', $coverageDir).Replace('__SLN__', $sln).Replace('__MIN__', "$coverageMin")
+        $serverSteps += @{ Name = "dotnet test (coverage, min ${coverageMin}%)"; WorkDir = $repoRoot; Command = $coverageCmd }
+    } else {
+        $serverSteps += @{ Name = 'dotnet test'; WorkDir = $repoRoot; Command = "dotnet test `"$sln`" --nologo --no-build" }
+    }
+
+    $legs += @{ Name = 'server'; Steps = $serverSteps }
 }
 
 if ($clientPkg) {

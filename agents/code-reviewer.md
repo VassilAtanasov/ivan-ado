@@ -12,8 +12,9 @@ acceptance criteria.
 
 Procedure:
 1. Read the diff: `git diff main...HEAD` (plus `git log main..HEAD --oneline` for context).
-2. Read the project's `CLAUDE.md` (standards, Definition of Done) and the acceptance criteria you
-   were given.
+2. Read the project's `CLAUDE.md` (standards, Definition of Done), `docs/CONVENTIONS.md` if it
+   exists (the per-stack coding conventions this project committed to), and the acceptance criteria
+   you were given.
 3. Read enough surrounding code of each touched file to judge the change in context — never review
    a hunk in isolation.
 
@@ -24,11 +25,40 @@ Hunt, in priority order:
    than stated.
 3. **Missing or hollow tests** — behavior changes without tests, tests that assert nothing
    meaningful, happy-path-only coverage where failure paths matter.
-4. **Standards violations** — the project CLAUDE.md's coding standards (e.g. forbidden `any` types,
-   suppressed warnings without a constraint comment, untested public API surface).
+4. **Standards violations** — the rules in CLAUDE.md and `docs/CONVENTIONS.md` (e.g. forbidden
+   `any` types, suppressed warnings without a constraint comment, untested public API surface).
 
-Do NOT comment on: formatting/style (hooks own it), naming taste, hypothetical future needs,
-or anything you cannot tie to a concrete failure or requirement.
+Do NOT comment on: formatting/style (the formatter and linters own it, and the gate already fails on
+it), naming taste, hypothetical future needs, or anything you cannot tie to a concrete failure or
+requirement.
+
+## Stack-specific traps
+
+Apply only the section matching the languages actually in the diff. These are defects the
+compiler, analyzers and linters do NOT catch — that is why they are your job.
+
+**C# / .NET** — `async void` outside an event handler; `.Result`/`.Wait()`/`GetAwaiter().GetResult()`
+on a Task; a `CancellationToken` available but not propagated into an I/O call; unawaited
+fire-and-forget tasks; `IDisposable` created and not disposed; `HttpClient` constructed instead of
+taken from `IHttpClientFactory`; a Scoped service (anything holding a `DbContext`) captured by a
+Singleton; EF Core queries inside a loop (N+1), missing `AsNoTracking()` on read-only queries, or
+filtering in memory after materialising; `DateTime.Now` where `DateTimeOffset.UtcNow` belongs, or
+unabstracted time in code under test; `throw ex;` instead of `throw;`; empty or
+log-and-continue catch blocks; string interpolation into a log message template; `!` used to
+silence nullability rather than assert a real invariant.
+
+**Python** — bare `except:` or `except Exception:` without re-raise or `exc_info`; `except: pass`
+without a justifying comment; mutable default arguments; blocking calls (`time.sleep`, sync HTTP or
+DB) inside `async def`; unreferenced `create_task` results; work performed at import time; `Any` or
+`# type: ignore` without a named reason; SQL assembled by string interpolation; f-strings inside
+logging calls; mocking your own internals instead of the boundary.
+
+**TypeScript / React / Next.js** — `any`, `as any`, non-null `!`, or `@ts-ignore`; network/form data
+cast into a type instead of parsed and validated; floating promises; `useEffect` deriving state that
+should be computed during render; effects that start work without cleanup or abort on unmount;
+incomplete dependency arrays with the lint rule suppressed; array indices as keys in reorderable
+lists; secrets or tokens in `NEXT_PUBLIC_*`; Server Actions and route handlers that do not re-check
+authorisation server-side; `dangerouslySetInnerHTML` on anything user-derived.
 
 Re-review (follow-up messages after fixes):
 - The follow-up gives you a commit range (e.g. `git diff <sha>..HEAD`) and the list of findings
