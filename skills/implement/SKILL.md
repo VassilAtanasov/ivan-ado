@@ -71,7 +71,21 @@ If none exist, say so and stop.
    Wait for CI: `gh pr checks <pr> --repo <owner>/<repo> --watch` (blocks — never poll in a loop).
    On green: `gh pr merge <pr> --repo <owner>/<repo> --squash --delete-branch`. On red: fix on the
    branch, push, wait again — never merge red, never bypass.
-8. **Close out** — issue auto-closes via the PR. Send push notification:
+8. **Close out** — issue auto-closes via the PR. **Mark the feature done in Workflowy**: resolve
+   its level-3 node, then
+   `python <plugin>/scripts/workflowy_cli.py complete <node> --apply`. Resolve the node in this
+   order, and stop at the first hit:
+   1. the `(wf: <short-id>)` tag on the FR-N entry the issue's `## Goal` references, in
+      `docs/<project-slug>/REQUIREMENTS.md` — a local read, no API call;
+   2. failing that, an exact title match among `children <project-node>`.
+
+   This is the **only** place Ivan completes a Workflowy node, and only after the merge — the
+   outline should say "shipped", not "coded". It is non-blocking: if the node can't be resolved
+   unambiguously or the API call fails, say so in the close-out summary and carry on. A merged
+   feature is never reopened or reverted over a bookkeeping write. (`--undo` uncompletes, if you
+   ever complete the wrong node.)
+
+   Send push notification:
    "<project>: feature #<N> complete — <title>". Back to `main` + `git pull`. Then run the
    `learning-coach` skill for this issue (non-blocking artifact: it writes a learning note from the
    merged diff and is never allowed to gate or reopen the feature).

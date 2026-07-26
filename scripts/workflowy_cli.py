@@ -357,6 +357,20 @@ def cmd_update_node(args: argparse.Namespace) -> None:
     print_json({"dry_run": False, "node": node_ref, "result": result})
 
 
+def cmd_complete(args: argparse.Namespace) -> None:
+    """Mark a node complete (or undo it). Used by /implement when a feature merges."""
+    node_ref = normalize_ref(args.node)
+    action = "uncomplete" if args.undo else "complete"
+    if not args.apply:
+        print_json({"dry_run": True, "node": node_ref, "action": action})
+        return
+    result = request_json(
+        "POST",
+        f"/nodes/{urllib.parse.quote(node_ref, safe='')}/{action}",
+    )
+    print_json({"dry_run": False, "node": node_ref, "action": action, "result": result})
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflowy API helper for Ivan")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -387,6 +401,12 @@ def build_parser() -> argparse.ArgumentParser:
     append.add_argument("--allow-long-names", action="store_true")
     append.add_argument("--apply", action="store_true", help="Write to Workflowy")
     append.set_defaults(func=cmd_append_outline)
+
+    complete = subparsers.add_parser("complete", help="Mark a node complete (or --undo)")
+    complete.add_argument("node")
+    complete.add_argument("--undo", action="store_true", help="Uncomplete instead")
+    complete.add_argument("--apply", action="store_true", help="Write to Workflowy")
+    complete.set_defaults(func=cmd_complete)
 
     update = subparsers.add_parser("update-node", help="Update one node name or note")
     update.add_argument("node")

@@ -36,7 +36,13 @@ note as the body verbatim. `/implement <issue>` then builds it.
 Workflowy is the source of truth for the *plan*, `docs/` for the *product truth*, GitHub Issues
 and Projects for *execution*. Item names stay ≤ 15 words; detail goes in the item's note.
 Writes need `WORKFLOWY_API_KEY` (from `.env`, never printed) and are dry-run until the user says
-go. Never delete, move, or complete a Workflowy node.
+go. Never delete or move a Workflowy node.
+
+**Completing a node** has exactly one sanctioned case: `/implement` ticks a level-3 feature
+complete after its PR merges, closing the loop so the outline shows what has shipped. That write
+is autonomous (no dry run — the user isn't there) but non-blocking: a failed tick is reported,
+never retried into a thrash and never a reason to touch merged code. Nothing else — not a project,
+not the repo node, not a user's level-4 child — is ever completed by Ivan.
 
 ## GitHub access (every skill, no exceptions)
 
@@ -80,7 +86,9 @@ A feature is done only when ALL of these hold:
 4. `qa-verifier` subagent confirmed every acceptance criterion on the issue against the running
    app. Review and QA run in parallel; after fixes, only failed/affected criteria are re-verified.
 5. PR created with `Closes #<issue-number>`, CI green, squash-merged.
-6. Push notification sent to the user ("Feature #N complete: <title>").
+6. The feature's Workflowy level-3 node ticked complete (non-blocking — report and move on if it
+   can't be resolved).
+7. Push notification sent to the user ("Feature #N complete: <title>").
 
 Never merge on red CI. Never close an issue by hand — the PR merge closes it.
 

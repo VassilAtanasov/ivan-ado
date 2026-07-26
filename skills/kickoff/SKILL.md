@@ -84,7 +84,8 @@ Rules:
 - Each criterion maps to something a test can assert and the qa-verifier can exercise.
 - Keep the item **name** unchanged unless the user agrees to a better one (≤ 15 words).
 - Show the `update-node --note-file` dry run, then apply only after the user says go. Never
-  delete, move, or complete a node, and leave the user's level-4+ children untouched.
+  delete, move, or complete a node here — completing a feature belongs to `/implement`, after its
+  PR merges — and leave the user's level-4+ children untouched.
 
 Then update this feature's FR-N entry in `docs/<project-slug>/REQUIREMENTS.md` with the same
 acceptance conditions (the docs are the product truth; the note is its Workflowy face — they must

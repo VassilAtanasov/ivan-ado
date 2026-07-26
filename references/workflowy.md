@@ -65,6 +65,8 @@ python <plugin>/scripts/workflowy_cli.py outline <node-id-or-url> --max-depth 3
 python <plugin>/scripts/workflowy_cli.py append-outline <node-id-or-url> --file plan.md
 python <plugin>/scripts/workflowy_cli.py append-outline <node-id-or-url> --file plan.md --apply
 python <plugin>/scripts/workflowy_cli.py update-node <node-id-or-url> --note-file note.md --apply
+python <plugin>/scripts/workflowy_cli.py complete <node-id-or-url> --apply
+python <plugin>/scripts/workflowy_cli.py complete <node-id-or-url> --undo --apply
 ```
 
 `append-outline` and `update-node` are **dry-run unless `--apply`**. In an outline file, two-space
@@ -74,5 +76,11 @@ creating a child.
 ## Safety
 
 Read freely. Before any write, show the user the dry-run output and get an explicit go-ahead.
-Never delete, move, or complete a node, and never rewrite an item the user wrote, unless the user
-asks for that exact operation — prefer adding children or proposing an edit they can accept.
+Never delete or move a node, and never rewrite an item the user wrote, unless the user asks for
+that exact operation — prefer adding children or proposing an edit they can accept.
+
+**Completion is the one autonomous write.** `/implement` runs
+`complete <feature-node> --apply` after a feature's PR merges, so the outline reflects what has
+shipped. It applies without a dry run because build mode has no user to ask, and it is
+non-blocking — an unresolvable node or a failed call is reported and the pipeline continues.
+`complete <node> --undo --apply` reverses it. No other node type is ever completed by Ivan.

@@ -18,8 +18,10 @@ Workflowy API (`WORKFLOWY_API_KEY` in the repo's gitignored `.env`). Three level
 | 4+ | notes, edge cases, open questions, later/maybe | raw material for discovery; never synced |
 
 Workflowy is the source of truth for the **plan**, `docs/` for the **product truth**, GitHub for
-**execution**. Writes to Workflowy are dry-run until you say go; Ivan never deletes, moves, or
-completes a node. Details: [`references/workflowy.md`](references/workflowy.md).
+**execution**. Writes to Workflowy are dry-run until you say go, and Ivan never deletes or moves a
+node. The one autonomous write is the loop closing: `/implement` ticks a feature complete once its
+PR merges, so the outline shows what has shipped. Details:
+[`references/workflowy.md`](references/workflowy.md).
 
 ## The lifecycle
 
@@ -39,7 +41,7 @@ Workflowy and Ivan drains them one at a time:
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, Workflowy key + root node, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
 | `/discover <project>` | **Breadth, one run per project.** Decomposes one Workflowy project into its feature list: ideation → feature decomposition → architecture, seeded by what you already outlined. Writes the features back as level-3 items with stub notes and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
 | `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes the description into that feature's Workflowy note (`## Goal`, `## Acceptance criteria`, `## Out of scope`); mirrors the criteria into REQUIREMENTS.md; then creates the GitHub issue with that note as its body verbatim, on the project's board (created on first use). Open questions block the issue instead of becoming guesses. |
-| `/implement <issue>` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → `learning-coach` note. |
+| `/implement <issue>` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → tick the feature complete in Workflowy → `learning-coach` note. |
 | `/autopilot` | Loops `/implement` over the active project's board until that phase is drained; circuit breaker stops and notifies you after 3 failed cycles on one issue; runs `/retrospective` when the run ends and points you at the next Workflowy project. |
 | `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at `/implement` close-out; never gates or edits code. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as `follow-up`-labeled issues (never `feature`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
