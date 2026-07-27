@@ -37,7 +37,8 @@ Scope: the feature that just merged when invoked at `/implement` close-out (diff
    Try next: <one small exercise>
    ```
 
-   Commit it — as a docs-only change it rides the gate trivially.
+   Commit and push it directly to `main` (the template `ci.yml` ignores `docs/**` on push, so this
+   doesn't trigger a redundant CI run for the PR that already went green).
 6. Send a push notification: "<project>: learning note ready for #<N> — <concepts>".
 
 ## Constraints

@@ -69,7 +69,9 @@ Append a dated entry to `docs/RETROSPECTIVE-LOG.md` (create it if absent, newest
 - Process adjustments applied: <doc/standard changes, or "none">
 ```
 
-Commit this (and any CLAUDE.md standards change) — it rides the Stop-hook gate.
+Commit and push this (and any CLAUDE.md standards change) directly to `main` — the Stop-hook gate
+still runs locally, and the template `ci.yml` ignores `docs/**`/`CLAUDE.md` on push so it doesn't
+trigger a redundant remote CI run.
 
 ## 5. Safe return to main (never destructive)
 
