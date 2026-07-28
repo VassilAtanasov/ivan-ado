@@ -34,7 +34,10 @@ before starting). Loop:
      stop, then run the `retrospective` skill to capture what shipped and why the run stopped.
 
 Rules:
-- One issue at a time, always to completion or explicit skip — never interleave branches.
+- One issue at a time, always to completion or explicit skip — never interleave branches. Each
+  `/implement` call isolates itself in its own git worktree and cleans up on exit (see
+  **Concurrency** in CLAUDE.md), so this loop can safely run alongside a separate manual
+  `/implement` session working a different issue.
 - If every remaining issue is in the skipped-for-clarification set, stop and summarize instead of
   spinning, then run the `retrospective` skill.
 - Between issues, verify `main` is green

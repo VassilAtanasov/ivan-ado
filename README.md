@@ -41,10 +41,19 @@ Workflowy and Ivan drains them one at a time:
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, CI workflow, doc templates, permission allowlist, Workflowy key + root node, and the `## Ivan project config` section in CLAUDE.md. Idempotent. |
 | `/discover <project>` | **Breadth, one run per project.** Decomposes one Workflowy project into its feature list: ideation → feature decomposition → architecture, seeded by what you already outlined. Writes the features back as level-3 items with stub notes and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
 | `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes the description into that feature's Workflowy note (`## Goal`, `## Acceptance criteria`, `## Out of scope`); mirrors the criteria into REQUIREMENTS.md; then creates the GitHub issue with that note as its body verbatim, on the project's board (created on first use). Open questions block the issue instead of becoming guesses. |
-| `/implement <issue>` | One issue end-to-end: branch → code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → tick the feature complete in Workflowy → `learning-coach` note. |
+| `/implement <issue>` | One issue end-to-end **in its own git worktree** (safe to run several at once, on different issues): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (run in parallel; fixes re-checked incrementally) → PR → CI green → squash-merge → tick the feature complete in Workflowy → `learning-coach` note. |
 | `/autopilot` | Loops `/implement` over the active project's board until that phase is drained; circuit breaker stops and notifies you after 3 failed cycles on one issue; runs `/retrospective` when the run ends and points you at the next Workflowy project. |
 | `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at `/implement` close-out; never gates or edits code. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as `follow-up`-labeled issues (never `feature`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
+
+## Running several sessions at once
+
+`/implement` (and `/autopilot`, which is just `/implement` in a loop) isolates each run in its own
+git worktree, so two sessions can build two different issues at the same time without sharing a
+checked-out branch or build output. `/discover` and `/kickoff` commit docs straight to `main`
+instead of a branch, so they guard the push with a rebase-and-retry rather than a worktree. Neither
+isolates a fixed network port two concurrently-running app instances would both bind to — see
+**Concurrency** in the project's `CLAUDE.md` for the full picture.
 
 ## Quality guarantees
 

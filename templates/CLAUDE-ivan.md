@@ -75,6 +75,25 @@ Auth: `gh project` needs a token with Projects access (classic PAT `project` sco
 fine-grained PAT with Projects: Read and write). Note `gh` prefers a `GITHUB_TOKEN`/`GH_TOKEN`
 environment variable over its keyring, and `gh auth refresh` cannot upgrade an env token.
 
+## Concurrency: simultaneous sessions on different features
+
+Ivan is meant to be run from more than one session at once — e.g. `/implement #12` in one terminal
+while `/kickoff` details the next feature, or two `/implement` sessions each on their own issue.
+
+- **`/implement` isolates itself in a git worktree** (`EnterWorktree`/`ExitWorktree`), so two build
+  sessions never share a working directory, a checked-out branch, or build output. This is the
+  only thing that makes parallel builds safe — never revert `/implement` to plain
+  `git checkout -b` in the main working copy.
+- **What a worktree does *not* isolate**: a fixed port or a shared local service (a database
+  container, a queue) that two running app instances would both bind to. If two `/implement`
+  sessions may run at once, the `qa-verifier` picks a free port per run rather than assuming the
+  fixed one in ARCHITECTURE.md — see that agent's instructions.
+- **`/discover` and `/kickoff` commit docs straight to `main`, not on a branch** (see below), so two
+  such sessions editing the *same* project's docs at once can race on the push. `git pull --rebase`
+  immediately before every such commit, and retry once on a non-fast-forward push rejection — these
+  are small sequential doc edits, so a clean rebase is the expected outcome. Stop and surface a real
+  conflict rather than force-pushing.
+
 ## Definition of Done (per feature issue)
 
 A feature is done only when ALL of these hold:

@@ -12,6 +12,12 @@ Procedure:
 1. Read the project's `CLAUDE.md`, the active project's `docs/<project-slug>/ARCHITECTURE.md`, and
    the repo-wide `docs/ARCHITECTURE.md` to learn how to start the application (backend run
    command, frontend dev server, ports). The per-project file wins where the two disagree.
+   `/implement` runs each feature in its own git worktree, so a fixed port from ARCHITECTURE.md may
+   already be bound by another verification pass running concurrently in a sibling worktree —
+   check before you bind (a quick connect/listen probe), and if it's taken, start this run on a
+   free port via whatever override the project's run commands already support (env var, CLI flag).
+   Note the port actually used in your report. If the project's run instructions have no such
+   override, that's a real gap — say so rather than silently editing config to work around it.
 2. Start what the feature needs (background processes) ONCE, wait until they are listening. Keep
    them running for the whole verification pass — never restart between criteria except as
    required by step 3c.

@@ -2,6 +2,7 @@
   "//": "Merge into the project's .claude/settings.json during /adopt. Adapt the allow list to the project's stack; keep the deny list.",
   "permissions": {
     "allow": [
+      "EnterWorktree", "ExitWorktree",
       "Bash(dotnet:*)", "Bash(npm:*)", "Bash(npx:*)", "Bash(node:*)",
       "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git add:*)",
       "Bash(git commit:*)", "Bash(git checkout:*)", "Bash(git switch:*)", "Bash(git branch:*)",

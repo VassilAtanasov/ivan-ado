@@ -89,7 +89,10 @@ Rules:
 
 Then update this feature's FR-N entry in `docs/<project-slug>/REQUIREMENTS.md` with the same
 acceptance conditions (the docs are the product truth; the note is its Workflowy face — they must
-not drift), add anything the interview surfaced to §5 or §6, and commit the docs.
+not drift), add anything the interview surfaced to §5 or §6, and commit the docs. This commits
+straight to `main` — `git pull --rebase` first and retry once on a rejected push (see
+**Concurrency** in CLAUDE.md; a simultaneous `/kickoff` session detailing another feature in this
+same project may have pushed a docs change first).
 
 ## 3. Gate — never create an issue from an unsettled feature
 

@@ -126,7 +126,9 @@ this phase's build will need. Remove the "TEMPLATE" status lines.
 
 Record the project in the `## Ivan project config` registry table in CLAUDE.md (project name,
 Workflowy short id, docs folder; the board number is filled by `/kickoff`), set it as the active
-project, and commit the docs.
+project, and commit the docs. This commits straight to `main` — `git pull --rebase` first and
+retry once on a rejected push (see **Concurrency** in CLAUDE.md; a second `/discover` or `/kickoff`
+session on this project's docs may have pushed first).
 
 Then tell the user: review the outline and the two docs, then run `/kickoff <feature>` once per
 feature — listing the features in dependency order — to settle each description and create its
