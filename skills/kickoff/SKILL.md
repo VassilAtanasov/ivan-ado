@@ -82,7 +82,9 @@ Rules:
 - Every criterion is checkable by someone who cannot read the code. "Validates input" is not a
   criterion; "rejects an empty name with 400 and an error message naming the field" is.
 - Each criterion maps to something a test can assert and the qa-verifier can exercise.
-- Keep the item **name** unchanged unless the user agrees to a better one (≤ 15 words).
+- Keep the item **name** unchanged unless the user agrees to a better one (≤ 15 words). Prefix it
+  with its `FR-N` id if not already present (e.g. `FR-3: <name>`) — rename the Workflowy node to
+  match, since this prefixed form is also the GitHub issue title.
 - Show the `update-node --note-file` dry run, then apply only after the user says go. Never
   delete, move, or complete a node here — completing a feature belongs to `/implement`, after its
   PR merges — and leave the user's level-4+ children untouched.
@@ -132,7 +134,8 @@ Follow the **GitHub access** rules in CLAUDE.md for every `gh` call.
 
 ## 5. Create the issue
 
-- Title = the Workflowy item name (imperative feature name).
+- Title = the Workflowy item name, which now carries its `FR-N` prefix (e.g. `FR-3: <imperative
+  feature name>`) from step 2.
 - Body = **the note verbatim** — you just wrote it in issue-body shape. Do not rewrite, summarize,
   or add source metadata; traceability lives in the FR-N entry in REQUIREMENTS.md.
 - `gh issue create --repo <owner>/<repo> --label feature --title "<name>" --body-file <file>` —
