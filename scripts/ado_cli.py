@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Azure DevOps helper for Ivan's SDLC skills.
 
-Replaces workflowy_cli.py (planning) and most of the `gh` surface (execution).
-All write commands are dry-run unless --apply is passed. Nothing here ever deletes.
+Owns every call that carries text: work items, discussion comments, pull request
+bodies, and the CI wait. All write commands are dry-run unless --apply is passed.
+Nothing here ever deletes.
 
 Auth, first hit wins:
   1. AZURE_DEVOPS_PAT      (env or repo .env)  -> Basic

@@ -65,8 +65,8 @@ Process → Basic → Projects → Change process) or `/adopt` must fall back to
 
 `ado_cli.py` resolves a credential in this order:
 
-1. `AZURE_DEVOPS_PAT` — from the environment or the repo's gitignored `.env` (the pattern Ivan
-   already used for Workflowy). Sent as `Authorization: Basic base64(":" + PAT)`.
+1. `AZURE_DEVOPS_PAT` — from the environment or the repo's gitignored `.env`. Sent as
+   `Authorization: Basic base64(":" + PAT)`.
 2. `AZURE_DEVOPS_EXT_PAT` — the same variable the `az devops` extension honours.
 3. `SYSTEM_ACCESSTOKEN` — the pipeline-run token, so the same script works inside CI.
 4. `az account get-access-token` for resource `499b84ac-1321-427f-aa17-267ca6975798` — works when

@@ -1,45 +1,48 @@
 ---
 name: autopilot
-description: Ivan works through the active project's open feature backlog autonomously, one /implement pipeline per issue, until the board is empty or a circuit breaker requires human input.
+description: Ivan works through the active phase's ready feature backlog autonomously, one /implement pipeline per work item, until the backlog is empty or a circuit breaker requires human input.
 ---
 
 # /autopilot — drain the backlog
 
-You are Ivan in **build mode**, fully autonomous. You drain **one project's** backlog: the active
-project in the `## Ivan project config` registry, or the one named as the argument (set it active
+You are Ivan in **build mode**, fully autonomous. You drain **one phase's** backlog: the active
+phase in the `## Ivan project config` registry, or the one named as the argument (set it active
 before starting). Loop:
 
-1. List the open `feature` issues on that project's board — **one call** (see the GitHub access
-   rules in CLAUDE.md):
+1. List the buildable Features on that phase's area path — **one call** (see the Azure DevOps
+   access rules in CLAUDE.md):
 
    ```
-   gh issue list --repo <owner>/<repo> --label feature --state open --limit 100 \
-     --json number,title,projectItems \
-     --jq '[.[] | select(.projectItems[]?.title == "<project>")] | sort_by(.number)'
+   python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json
    ```
+
+   The preset requires the `ready` tag, so features `/kickoff` hasn't settled yet stay out of the
+   queue by construction.
 
    If empty, this phase is done: post a summary (features shipped this run, PRs merged, anything
-   skipped), send a push notification ("<project>: <phase> complete — N features shipped"), then
-   run the `retrospective` skill to record lessons and file follow-ups before ending the run. If
-   the Workflowy outline has a next level-2 project, name it in the summary and tell the user to
-   run `/discover <next>` — do not start it yourself.
+   skipped), send a push notification ("<phase>: complete — N features shipped"), then run the
+   `retrospective` skill to record lessons and file follow-ups before ending the run. Then check
+   `--preset stub-features --area "<Project>\<phase>"`: if features remain undetailed, name them and
+   tell the user to run `/kickoff` on them. If the phase is genuinely exhausted and the board has a
+   later Epic, name it and tell the user to run `/discover <next>` — do not start it yourself.
 2. Run the full `/implement` pipeline (the `implement` skill of this plugin) on the
-   lowest-numbered open issue from step 1, **passing the issue number explicitly** so it does not
-   re-run the query you just ran.
+   lowest-numbered work item from step 1, **passing the id explicitly** so it does not re-run the
+   query you just ran.
 3. Outcomes:
    - **Merged** → next iteration.
    - **Skipped for clarification** (ambiguity rule) → next iteration; collect it for the final summary.
    - **Circuit breaker tripped** (3 failed cycles) → STOP the whole run. The notification and
-     issue diagnosis were already sent by /implement; add a run summary of what shipped before the
-     stop, then run the `retrospective` skill to capture what shipped and why the run stopped.
+     work item diagnosis were already sent by /implement; add a run summary of what shipped before
+     the stop, then run the `retrospective` skill to capture what shipped and why the run stopped.
 
 Rules:
-- One issue at a time, always to completion or explicit skip — never interleave branches. Each
+- One work item at a time, always to completion or explicit skip — never interleave branches. Each
   `/implement` call isolates itself in its own git worktree and cleans up on exit (see
   **Concurrency** in CLAUDE.md), so this loop can safely run alongside a separate manual
-  `/implement` session working a different issue.
-- If every remaining issue is in the skipped-for-clarification set, stop and summarize instead of
+  `/implement` session working a different item.
+- If every remaining item is in the skipped-for-clarification set, stop and summarize instead of
   spinning, then run the `retrospective` skill.
-- Between issues, verify `main` is green
-  (`gh run list --repo <owner>/<repo> --branch main --limit 1 --json status,conclusion`); if main
-  is somehow red, fixing main IS the next task before any new feature.
+- Between items, verify `main` is green:
+  `az pipelines runs list --org <org> --project <project> --branch main --top 1 -o json` — check
+  `status` is `completed` and `result` is `succeeded`. If main is somehow red, fixing main IS the
+  next task before any new feature.

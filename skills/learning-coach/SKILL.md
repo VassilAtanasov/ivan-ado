@@ -1,6 +1,6 @@
 ---
 name: learning-coach
-description: Ivan writes a short learning note about the language concepts a shipped feature actually introduced, tied to this project's stack. Autonomous, non-blocking artifact - never gates the pipeline, never asks the user. Auto-invoked at feature close-out; also runnable standalone for an issue or diff.
+description: Ivan writes a short learning note about the language concepts a shipped feature actually introduced, tied to this project's stack. Autonomous, non-blocking artifact - never gates the pipeline, never asks the user. Auto-invoked at feature close-out; also runnable standalone for a work item or diff.
 ---
 
 # /learning-coach — explain what the code taught
@@ -14,7 +14,7 @@ is the language(s) you teach against (Python, for a Python project). If the stac
 infer the language from the changed files.
 
 Scope: the feature that just merged when invoked at `/implement` close-out (diff its squash-merge on
-`main`), or an explicit issue / PR / commit range when invoked standalone.
+`main`), or an explicit work item / PR / commit range when invoked standalone.
 
 ## Workflow
 
@@ -30,7 +30,7 @@ Scope: the feature that just merged when invoked at `/implement` close-out (diff
 5. Append a dated entry to `docs/LEARNING-LOG.md` (create it if absent, newest last):
 
    ```
-   ## <YYYY-MM-DD> — #<issue> <feature title>
+   ## <YYYY-MM-DD> — #<work item> <feature title>
    Concepts: <comma list>
    - **<concept>** — why here: <...> (`path:line`). Pitfall: <...>
    ...
