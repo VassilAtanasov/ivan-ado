@@ -1,11 +1,18 @@
-# ivan-sdlc — Ivan, an autonomous SDLC agent for Claude Code
+# ivan-ado — Ivan, an autonomous SDLC agent for Claude Code on Azure DevOps
+
+> **Port in progress.** This is the Azure DevOps fork of `ivan-sdlc`. Ported so far:
+> the access layer (`scripts/ado_cli.py`), the board contract
+> (`references/azure-devops.md`), `/adopt`, and the templates it installs.
+> `/discover`, `/kickoff`, `/implement`, `/autopilot` and `/retrospective` still
+> describe the Workflowy + GitHub flow below and are being converted next — do not
+> rely on the sections marked *(pre-port)* until then.
 
 **Ivan** is a Claude Code plugin that turns any repository into an autonomous software development
 lifecycle: you describe the product, Ivan plans it with you, then builds it feature by feature —
 gated, tested, reviewed, verified, and merged through PRs — pinging you only when something is
 done or needs your decision.
 
-## Planning in Workflowy
+## Planning in Workflowy *(pre-port)*
 
 You plan in [Workflowy](https://workflowy.com/); Ivan reads and writes that outline through the
 Workflowy API (`WORKFLOWY_API_KEY` in the repo's gitignored `.env`). Three levels matter:
@@ -23,7 +30,7 @@ node. The one autonomous write is the loop closing: `/implement` ticks a feature
 PR merges, so the outline shows what has shipped. Details:
 [`references/workflowy.md`](references/workflowy.md).
 
-## The lifecycle
+## The lifecycle *(pre-port)*
 
 The loop after `/adopt` runs **once per project (phase)** — you keep adding level-2 projects in
 Workflowy and Ivan drains them one at a time:
@@ -67,7 +74,7 @@ isolates a fixed network port two concurrently-running app instances would both 
    which the code-reviewer reads on every diff. Conventions ship for C#, Python and
    TypeScript/React/Next.js; other stacks get one written in the same shape.
 
-## Tracking & notifications
+## Tracking & notifications *(pre-port)*
 
 GitHub Issues are the backlog, one GitHub Projects board per Workflowy project is the status view,
 issue timelines are the live log (Ivan comments at every stage). Push notifications on: feature complete, backlog complete,
@@ -76,12 +83,18 @@ stuck (circuit breaker), clarification needed, open questions awaiting input.
 ## Install (once per machine)
 
 ```
-claude plugin marketplace add VassilAtanasov/ivan-sdlc
-claude plugin install ivan@ivan-sdlc
+claude plugin marketplace add VassilAtanasov/ivan-ado
+claude plugin install ivan-ado@ivan-ado
+```
+
+To run it from a local checkout instead (what you want while the port is in flight):
+
+```
+claude plugin marketplace add C:\path\to\ivan-ado
+claude plugin install ivan-ado@ivan-ado
 ```
 
 (or the `/plugin marketplace add` / `/plugin install` slash commands in an interactive session).
-Private-repo note: cloning uses your git HTTPS credentials — `gh auth login` once if needed.
 Restart the session after installing; skills load at session start.
 
 Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above. `/discover`
@@ -95,20 +108,20 @@ two install commands once on their machine:
 ```json
 {
   "extraKnownMarketplaces": {
-    "ivan-sdlc": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-sdlc" } }
+    "ivan-ado": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
   },
-  "enabledPlugins": { "ivan@ivan-sdlc": true }
+  "enabledPlugins": { "ivan-ado@ivan-ado": true }
 }
 ```
 
 ## Update (after enhancing Ivan)
 
 ```
-claude plugin marketplace update ivan-sdlc
+claude plugin marketplace update ivan-ado
 ```
 
 All projects on the machine pick up the new version at their next session. Template files
-already copied into projects by `/adopt` (gate.ps1, hooks, ci.yml, conventions, stack lint config)
+already copied into projects by `/adopt` (gate.ps1, hooks, azure-pipelines.yml, conventions, stack lint config)
 are refreshed by re-running
 `/adopt` in that project.
 
@@ -119,11 +132,14 @@ are refreshed by re-running
 skills/                      adopt, discover, kickoff, implement, autopilot, retrospective,
                              learning-coach
 agents/                      code-reviewer, qa-verifier
-scripts/                     workflowy_cli.py (Workflowy API helper used by discover + kickoff)
-references/                  workflowy.md (API notes + the repo→project→feature outline contract)
+scripts/                     ado_cli.py (Azure DevOps REST helper — work items, comments, PRs,
+                             the CI wait; every text-carrying write goes through it)
+                             workflowy_cli.py (pre-port, removed once /discover + /kickoff land)
+references/                  azure-devops.md (API notes + the Epic→Feature board contract)
+                             workflowy.md (pre-port)
 references/conventions/      per-stack coding conventions installed as docs/CONVENTIONS.md by /adopt
-templates/                   gate.ps1, hooks, ci.yml, CLAUDE-ivan.md, settings snippet, gitignore,
-                             gitattributes, doc skeletons
+templates/                   gate.ps1, hooks, azure-pipelines.yml, CLAUDE-ivan.md, settings
+                             snippet, gitignore, gitattributes, doc skeletons
 templates/dotnet/            .editorconfig + Directory.Build.props (installed only for .NET stacks)
 ```
 

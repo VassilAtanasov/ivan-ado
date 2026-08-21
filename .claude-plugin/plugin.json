@@ -1,7 +1,7 @@
 {
-  "name": "ivan",
-  "version": "1.6.0",
-  "description": "Ivan — an autonomous SDLC agent: Workflowy-driven discovery (repo → project → feature), requirements → GitHub Projects + Issues backlog, and a fully autonomous gate-governed build pipeline (implement, test, review, verify, PR, CI, merge).",
+  "name": "ivan-ado",
+  "version": "2.0.0-alpha.1",
+  "description": "Ivan — an autonomous SDLC agent on Azure DevOps: Boards-driven discovery (Epic → Feature), work items as the single backlog, and a fully autonomous gate-governed build pipeline (implement, test, review, verify, PR, pipeline, merge).",
   "author": {
     "name": "Vassil Atanasov"
   }
