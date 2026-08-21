@@ -49,6 +49,38 @@ work item types, every state with its category, and the repos. Record in the con
 
 Never hardcode these anywhere else — every later phase reads them from the config.
 
+## 2b. Team configuration (the backlog will look empty without this)
+
+Ivan puts each phase's work items on a child **area path** (`<Project>\<phase>`), and Azure Boards
+shows a team only the areas that team owns. A brand-new team owns the project root with
+**sub-areas excluded**, so every Feature Ivan creates is invisible in the backlog — the items exist
+and every WIQL query finds them, but the user sees an empty board and reasonably concludes nothing
+was created.
+
+Check and fix both settings, for the team that owns the backlog
+(`az devops team list --org <org> --project <project> -o json`):
+
+1. **Area scope must include sub-areas.**
+   ```
+   az devops invoke --org <org> --area work --resource teamfieldvalues      --route-parameters project=<project> team="<team>" --http-method GET --api-version 7.1 -o json
+   ```
+   If the entry for the project root has `includeChildren: false`, PATCH it (write the body to a
+   file — `az devops invoke --in-file` rejects a UTF-8 BOM, so use an encoding that omits it):
+   ```json
+   {"defaultValue": "<project>",
+    "values": [{"value": "<project>", "includeChildren": true}]}
+   ```
+   ```
+   az devops invoke --org <org> --area work --resource teamfieldvalues      --route-parameters project=<project> team="<team>" --http-method PATCH      --in-file teamfield.json --media-type application/json --api-version 7.1
+   ```
+2. **The Epics backlog level must be visible**, or the Epic that every Feature nests under cannot
+   be seen. Read `teamsettings` and, if `backlogVisibilities."Microsoft.EpicCategory"` is false,
+   PATCH `{"backlogVisibilities": {"Microsoft.EpicCategory": true}}` to the same `teamsettings`
+   resource.
+
+Both are also reachable in the UI under Project settings → Team configuration (Areas, and
+Backlogs), which is worth telling the user so they can see what changed.
+
 If the project is on **Basic** and the user wants the Epic → Feature hierarchy, tell them the
 conversion is UI-only: Organization settings → Boards → Process → Basic → Projects tab → select the
 project → More actions → Change process → Agile. It is safe while the board is empty and risks
