@@ -382,6 +382,9 @@ def run_wiql(query: str) -> list[int]:
     return [w["id"] for w in data.get("workItems", [])]
 
 
+# A Feature is only auto-buildable once /kickoff has settled it and tagged it
+# `ready`. /discover's stubs carry `ivan` but not `ready`, which is what stops
+# /autopilot building a one-line placeholder.
 PRESETS = {
     "open-features": (
         "SELECT [System.Id] FROM WorkItems "
@@ -389,6 +392,17 @@ PRESETS = {
         "AND [System.WorkItemType] = '{type}' "
         "{area}"
         "AND [System.State] NOT IN ('Closed', 'Removed', 'Done', 'Resolved') "
+        "AND [System.Tags] CONTAINS 'ready' "
+        "AND NOT [System.Tags] CONTAINS 'follow-up' "
+        "ORDER BY [System.Id]"
+    ),
+    "stub-features": (
+        "SELECT [System.Id] FROM WorkItems "
+        "WHERE [System.TeamProject] = @project "
+        "AND [System.WorkItemType] = '{type}' "
+        "{area}"
+        "AND [System.State] NOT IN ('Closed', 'Removed', 'Done', 'Resolved') "
+        "AND NOT [System.Tags] CONTAINS 'ready' "
         "AND NOT [System.Tags] CONTAINS 'follow-up' "
         "ORDER BY [System.Id]"
     ),

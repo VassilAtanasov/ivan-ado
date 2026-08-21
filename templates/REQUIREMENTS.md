@@ -1,9 +1,9 @@
 # Requirements — <project name>
 
-> One phase of iterative development, mirroring the Workflowy level-2 project of the same name.
+> One phase of iterative development, mirroring the Azure Boards Epic of the same name.
 > Lives at `docs/<project-slug>/REQUIREMENTS.md`. Written collaboratively with Ivan during
-> `/discover <project>`; this file is the source of product truth for the phase, and
-> `/kickoff <project>` turns it into the project's board and issues.
+> `/discover <phase>`; this file is the source of product truth for the phase, and `/kickoff`
+> fills in each feature's acceptance conditions as it settles them.
 > Status: **TEMPLATE — not yet filled**.
 
 ## 1. Product goal
@@ -20,10 +20,10 @@
 
 ## 4. Functional requirements
 
-<!-- Numbered, testable statements. Each mirrors a Workflowy level-3 feature under this project and
-     becomes one feature issue with acceptance criteria. Carry the Workflowy short id for traceability.
+<!-- Numbered, testable statements. Each mirrors one Feature work item under this phase's Epic.
+     Carry the work item id for traceability.
      Format:
-     FR-1 (wf: d8754237b505): <user> can <action> so that <outcome>.
+     FR-1 (ado: #42): <user> can <action> so that <outcome>.
        - Acceptance: <concrete, verifiable condition>
 -->
 
@@ -37,4 +37,4 @@
 
 ## 7. Open questions
 
-<!-- Anything unresolved. /kickoff refuses to proceed while this section has entries. -->
+<!-- Anything unresolved. /kickoff refuses to tag a feature `ready` while its questions are open. -->

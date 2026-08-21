@@ -25,14 +25,15 @@ so the user never has to poll to find out their decision is blocking progress.
 |---|---|---|
 | 1 | the ADO team project and its Azure Repo | the repository; never auto-created |
 | 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | `docs/<project-slug>/`; the Area Path is the backlog filter |
-| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan` |
+| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, plus `ready` once `/kickoff` settles it |
 | 4+ | child **Task** items, description bullets, discussion comments | raw material for discovery; never built directly |
 
 `/discover <project>` decides which Features an Epic contains (titles + stub descriptions).
-`/kickoff <feature>` settles one of them with you and writes the full description —
-`## Goal`, `## Acceptance criteria`, `## Out of scope`. There is **no second object to create**:
-the Feature *is* the backlog item, which is why nothing can drift out of sync.
-`/implement <id>` then builds it.
+`/kickoff <feature>` settles one of them with you, writes the full description —
+`## Goal`, `## Acceptance criteria`, `## Out of scope` — and tags it **`ready`**. There is **no
+second object to create**: the Feature *is* the backlog item, which is why nothing can drift out of
+sync. The `ready` tag is the only thing separating a stub from buildable work, so never add it
+outside `/kickoff`, and never build a feature that lacks it. `/implement <id>` then builds it.
 
 Azure Boards is the source of truth for the *plan and the execution*; `docs/` for the *product
 truth*. Titles stay ≤ 15 words and carry their `FR-N` prefix; detail goes in the Description.

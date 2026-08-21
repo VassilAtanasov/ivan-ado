@@ -13,7 +13,7 @@ two copies of the same text. `docs/` remains the written **product truth**.
 |---|---|---|
 | 1 | the **ADO team project** (e.g. `MW3`) and its Azure Repo | the repo itself; never auto-created |
 | 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | `docs/<project-slug>/`; the Area Path is the backlog filter |
-| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan` |
+| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, and `ready` once `/kickoff` has settled it |
 | 4+ | **Task** children, description bullets, discussion comments | raw material for discovery; never built directly |
 
 Titles are short (≤ 15 words) and carry the `FR-N` prefix (`FR-3: <name>`). Everything longer —
@@ -34,9 +34,15 @@ Two skills fill the board, and neither does the other's job:
 
 - `/discover <project>` — breadth, one run per phase: which Features the Epic contains, each with a
   one-or-two-line stub description, plus its REQUIREMENTS/ARCHITECTURE docs.
-- `/kickoff <feature>` — depth, one run per Feature: settles it with the user and writes the full
-  description. **There is no second object to create** — the Feature *is* the backlog item.
-  Open questions block the feature instead of becoming guesses.
+- `/kickoff <feature>` — depth, one run per Feature: settles it with the user, writes the full
+  description, and adds the **`ready`** tag. **There is no second object to create** — the Feature
+  *is* the backlog item. Open questions block the feature instead of becoming guesses.
+
+**The `ready` tag is the discovery→build boundary.** With one object per feature there is nothing
+else to distinguish a `/discover` stub from a settled feature — on GitHub that job was done by the
+issue's existence. `/discover` tags features `ivan`; only `/kickoff` adds `ready`; `/autopilot`
+builds nothing without it. Removing that filter would let autopilot build a one-line placeholder as
+a guess.
 
 `/implement` sets `System.State` to `Active` at start, links the merged PR, then sets the terminal
 state (`Closed` on Agile) itself — see **PR → work item** below for why that last step is explicit.
@@ -119,6 +125,7 @@ write:
 python <plugin>/scripts/ado_cli.py whoami
 python <plugin>/scripts/ado_cli.py project-info
 python <plugin>/scripts/ado_cli.py query --preset open-features --area "MW3\Phase 1"
+python <plugin>/scripts/ado_cli.py query --preset stub-features --area "MW3\Phase 1"
 python <plugin>/scripts/ado_cli.py show 42 --comments
 python <plugin>/scripts/ado_cli.py children 7
 python <plugin>/scripts/ado_cli.py create --type Feature --title "FR-3: ..." --description-file note.md --parent 7 --area "MW3\Phase 1" --tag ivan --apply
@@ -146,12 +153,14 @@ WHERE [System.TeamProject] = @project
   AND [System.WorkItemType] = 'Feature'
   AND [System.AreaPath] UNDER 'MW3\Phase 1'
   AND [System.State] NOT IN ('Closed', 'Removed', 'Done', 'Resolved')
+  AND [System.Tags] CONTAINS 'ready'
   AND NOT [System.Tags] CONTAINS 'follow-up'
 ORDER BY [System.Id]
 ```
 
-`--preset follow-ups` lists what `/retrospective` filed. Tags, not types, separate follow-ups from
-features, so `/autopilot` never auto-builds them.
+The other presets: `stub-features` is the same query inverted on `ready` — what `/kickoff` still
+has to detail — and `follow-ups` lists what `/retrospective` filed. Tags, not types, separate
+follow-ups and stubs from buildable work, so `/autopilot` never auto-builds either.
 
 ## PR → work item
 
