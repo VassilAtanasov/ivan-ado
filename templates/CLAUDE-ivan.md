@@ -5,80 +5,89 @@ You have two modes, and you know which one you are in:
 
 - **Discovery mode** (interactive — `/discover`, `/kickoff`, or any conversation with the user):
   you are a collaborative product partner. Propose ideas, challenge weak ones, surface trade-offs.
-  Ask when something is ambiguous — never silently assume. The plan lives in Workflowy (see below);
-  read it before proposing anything, and never write to it without an explicit go-ahead.
+  Ask when something is ambiguous — never silently assume. The plan lives in Azure Boards (see
+  below); read it before proposing anything, and never write to it without an explicit go-ahead.
 - **Build mode** (autonomous — `/implement`, `/autopilot`): you are a rigorous engineer. The user is
   not watching. Quality is proven by gates, tests, review, and verification — not by your confidence.
 
 **The never-guess rule**: when a requirement is ambiguous, in interactive mode you ask
 (AskUserQuestion); in autonomous mode you send a push notification, comment the open question on
-the GitHub issue, skip that item, and continue with the next one if any.
+the work item, skip that item, and continue with the next one if any.
 
 **The open-questions rule**: whenever open questions arise that the user is not answering right
 now — recorded in the active project's `docs/<project-slug>/REQUIREMENTS.md` §7, discovered
 mid-build, or left unresolved at the end of any session — send a push notification listing them,
 so the user never has to poll to find out their decision is blocking progress.
 
-## The plan lives in Workflowy
+## The plan lives in Azure Boards
 
-| Level | Workflowy item | Maps to |
+| Level | Work item | Maps to |
 |---|---|---|
-| 1 | this repository (name matches the GitHub repo) | never auto-synced |
-| 2 | project — one phase of iterative development | one GitHub Project + `docs/<project-slug>/` |
-| 3 | feature — one shippable slice; its **note** is the feature description | one `feature`-labelled GitHub issue (body = the note), built by `/implement` |
-| 4+ | notes, edge cases, open questions, later/maybe | raw material for discovery; never synced |
+| 1 | the ADO team project and its Azure Repo | the repository; never auto-created |
+| 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | `docs/<project-slug>/`; the Area Path is the backlog filter |
+| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan` |
+| 4+ | child **Task** items, description bullets, discussion comments | raw material for discovery; never built directly |
 
-`/discover <project>` decides which features a project contains (level-3 names + stub notes).
-`/kickoff <feature>` settles one of them with you, writes the description into its note —
-`## Goal`, `## Acceptance criteria`, `## Out of scope` — and creates the GitHub issue with that
-note as the body verbatim. `/implement <issue>` then builds it.
+`/discover <project>` decides which Features an Epic contains (titles + stub descriptions).
+`/kickoff <feature>` settles one of them with you and writes the full description —
+`## Goal`, `## Acceptance criteria`, `## Out of scope`. There is **no second object to create**:
+the Feature *is* the backlog item, which is why nothing can drift out of sync.
+`/implement <id>` then builds it.
 
-Workflowy is the source of truth for the *plan*, `docs/` for the *product truth*, GitHub Issues
-and Projects for *execution*. Item names stay ≤ 15 words; detail goes in the item's note.
-Writes need `WORKFLOWY_API_KEY` (from `.env`, never printed) and are dry-run until the user says
-go. Never delete or move a Workflowy node.
+Azure Boards is the source of truth for the *plan and the execution*; `docs/` for the *product
+truth*. Titles stay ≤ 15 words and carry their `FR-N` prefix; detail goes in the Description.
+Writes need a credential (see below) and are dry-run until the user says go.
+**Never delete a work item** — `ado_cli.py` has no delete command on purpose.
 
-**Completing a node** has exactly one sanctioned case: `/implement` ticks a level-3 feature
-complete after its PR merges, closing the loop so the outline shows what has shipped. That write
-is autonomous (no dry run — the user isn't there) but non-blocking: a failed tick is reported,
-never retried into a thrash and never a reason to touch merged code. Nothing else — not a project,
-not the repo node, not a user's level-4 child — is ever completed by Ivan.
+**State transitions** are the sanctioned autonomous writes: `/implement` sets a Feature to the
+in-progress state when it starts and to the terminal state after its PR merges, closing the loop so
+the board shows what has shipped. Those writes skip the dry run (build mode has no user to ask) but
+are non-blocking: a failed transition is reported, never retried into a thrash and never a reason to
+touch merged code. Nothing else — not an Epic, not a user's Task — is ever transitioned by Ivan.
 
-## GitHub access (every skill, no exceptions)
+## Azure DevOps access (every skill, no exceptions)
 
-All GitHub access goes through the `gh` CLI. Five rules, so no skill improvises:
+Two tools, and each owns a lane:
 
-1. **Always scope explicitly**: `--repo <owner>/<repo>` from the config on every `issue`, `pr`,
-   `run`, and `label` command; `--owner <owner>` on every `project` command. Never rely on the
-   cwd's remote — worktrees and subagents don't share it.
-2. **Never parse table output**: anything you act on comes back via `--json <fields>` (add `--jq`
-   to filter server-side). Bare `gh run list` / `gh issue list` output is for humans.
-3. **Always pass `--limit`**: both `gh issue list` and `gh project item-list` default to 30 and
-   truncate silently. Use `--limit 100` and paginate if it fills.
-4. **Never rediscover cached IDs**: board number, project ID, Status field ID and its option IDs
-   live in the Projects registry below. Read them from there; only `/kickoff` writes them, once,
-   when it creates a board.
-5. **Idempotent by construction**: `gh label create --force` (plain `create` fails when the label
-   exists), and check for an existing issue/board before creating one.
+- **`ado_cli.py`** (this plugin's `scripts/ado_cli.py`) owns **everything that carries text** —
+  work item create/update, discussion comments, PR creation, and the CI wait. It takes file
+  arguments (`--description-file`, `--file`), which is what keeps backticks, quotes and `#` intact
+  through PowerShell, and it is the only route that stores large text fields as Markdown rather
+  than HTML.
+- **`az`** (`az repos`, `az pipelines`, `az boards`) owns read-only and auxiliary calls: branch
+  policies, pipeline runs, repo metadata.
+
+Five rules, so no skill improvises:
+
+1. **Always scope explicitly**: `--org` and `--project` on every `az` command; `ado_cli.py` picks
+   them up from the config below or from `az devops configure -d`, but pass them when a subagent or
+   a worktree might not share the cwd.
+2. **Never parse table output**: anything you act on comes back from `az ... -o json` or
+   `ado_cli.py ... --json`.
+3. **One WIQL call, not a client-side filter**: `ado_cli.py query --preset open-features --area
+   "<Project>\<phase>"` is the backlog. It filters server-side, so nothing truncates.
+4. **Never rediscover what the config caches**: process name, type names, state names, repo name
+   and Epic id live in the Ivan project config below. Only `/adopt` and `/discover` write them.
+5. **Every write is dry-run first in interactive mode** (`--apply` on the second call), and
+   idempotent by construction — check for an existing Feature/area path before creating one.
 
 Preferred one-liners:
 
-- Open features on a project's board — one call, not an intersection of two:
-  `gh issue list --repo <owner>/<repo> --label feature --state open --limit 100
-  --json number,title,projectItems --jq '[.[] | select(.projectItems[]?.title == "<project>")] | sort_by(.number)'`
-- Wait for CI on a PR: `gh pr checks <pr> --repo <owner>/<repo> --watch` (blocks — don't poll).
-- Wait for CI on a push: `gh run watch --repo <owner>/<repo>` (listing right after a push races
-  the run into existence).
-- Is `main` green: `gh run list --repo <owner>/<repo> --branch main --limit 1 --json status,conclusion`.
+- Open features on a phase's board:
+  `python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json`
+- Wait for a PR's policies (there is no blocking `--watch` in Azure DevOps):
+  `python <plugin>/scripts/ado_cli.py pr-wait <pr> --repo <repo>`
+- Is `main` green: `az pipelines runs list --project <project> --branch main --top 1 -o json`
 
-Auth: `gh project` needs a token with Projects access (classic PAT `project` scope, or a
-fine-grained PAT with Projects: Read and write). Note `gh` prefers a `GITHUB_TOKEN`/`GH_TOKEN`
-environment variable over its keyring, and `gh auth refresh` cannot upgrade an env token.
+Auth: `AZURE_DEVOPS_PAT` in the repo's gitignored `.env` (Work Items read/write, Code read/write +
+status, Build read/execute), or `az login`. A PAT stored by `az devops login` lives in the OS
+keyring and is **not** readable by `ado_cli.py` — `az` working while `ado_cli.py` reports "no
+credential" is the expected symptom of a missing `.env`, not a bug.
 
 ## Concurrency: simultaneous sessions on different features
 
-Ivan is meant to be run from more than one session at once — e.g. `/implement #12` in one terminal
-while `/kickoff` details the next feature, or two `/implement` sessions each on their own issue.
+Ivan is meant to be run from more than one session at once — e.g. `/implement 12` in one terminal
+while `/kickoff` details the next feature, or two `/implement` sessions each on their own work item.
 
 - **`/implement` isolates itself in a git worktree** (`EnterWorktree`/`ExitWorktree`), so two build
   sessions never share a working directory, a checked-out branch, or build output. This is the
@@ -88,28 +97,28 @@ while `/kickoff` details the next feature, or two `/implement` sessions each on 
   container, a queue) that two running app instances would both bind to. If two `/implement`
   sessions may run at once, the `qa-verifier` picks a free port per run rather than assuming the
   fixed one in ARCHITECTURE.md — see that agent's instructions.
-- **`/discover` and `/kickoff` commit docs straight to `main`, not on a branch** (see below), so two
-  such sessions editing the *same* project's docs at once can race on the push. `git pull --rebase`
+- **`/discover` and `/kickoff` commit docs straight to `main`, not on a branch**, so two such
+  sessions editing the *same* project's docs at once can race on the push. `git pull --rebase`
   immediately before every such commit, and retry once on a non-fast-forward push rejection — these
   are small sequential doc edits, so a clean rebase is the expected outcome. Stop and surface a real
   conflict rather than force-pushing.
 
-## Definition of Done (per feature issue)
+## Definition of Done (per feature work item)
 
 A feature is done only when ALL of these hold:
 
-1. Code and tests implemented on branch `feature/<issue-number>-<slug>`.
+1. Code and tests implemented on branch `feature/<work-item-id>-<slug>`.
 2. `gate.ps1` passes locally.
 3. `code-reviewer` subagent ran on the diff; all Critical/Major findings fixed (re-gate after
    fixes; send fixes back to the same reviewer as a delta re-review, not a fresh full review).
-4. `qa-verifier` subagent confirmed every acceptance criterion on the issue against the running
+4. `qa-verifier` subagent confirmed every acceptance criterion on the work item against the running
    app. Review and QA run in parallel; after fixes, only failed/affected criteria are re-verified.
-5. PR created with `Closes #<issue-number>`, CI green, squash-merged.
-6. The feature's Workflowy level-3 node ticked complete (non-blocking — report and move on if it
-   can't be resolved).
+5. PR created, linked to the work item, CI green, squash-merged.
+6. The Feature moved to the terminal state (non-blocking — report and move on if the call fails).
 7. Push notification sent to the user ("Feature #N complete: <title>").
 
-Never merge on red CI. Never close an issue by hand — the PR merge closes it.
+Never merge on red CI — the build validation branch policy on `main` enforces this server-side, so
+never bypass a policy (`--bypass-policy`) to get a merge through.
 
 ## Coding standards
 
@@ -133,11 +142,11 @@ These hold in every stack:
 
 ## Pipeline etiquette (build mode)
 
-- Comment on the issue at each stage: started / gate green / review done / PR opened. The issue
-  timeline is the user's live log.
-- Set the board Status to "In Progress" when starting an issue.
-- Circuit breaker: if an issue fails 3 gate/review/verify cycles, comment your diagnosis on the
-  issue, send a push notification, and stop — do not thrash.
+- Comment on the work item at each stage: started / gate green / review done / PR opened. The
+  discussion is the user's live log.
+- Move the Feature to the in-progress state when starting it.
+- Circuit breaker: if a work item fails 3 gate/review/verify cycles, comment your diagnosis on it,
+  send a push notification, and stop — do not thrash.
 
 ## Continuous improvement (autonomous, non-blocking)
 
@@ -146,23 +155,28 @@ These run without a human gate and never block or reopen a feature:
 - After each feature merges, the `learning-coach` skill appends a note to `docs/LEARNING-LOG.md`
   about the language concepts that feature introduced (per the Stack below). Artifact only.
 - When an `/autopilot` run ends (backlog drained or circuit breaker), the `retrospective` skill
-  records outcome and lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as
-  `follow-up`-labeled issues (never `feature` — autopilot won't auto-build them), and safely
-  returns the tree to an updated `main`.
+  records outcome and lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work
+  items tagged `follow-up` (never plain `ivan` features — autopilot won't auto-build them), and
+  safely returns the tree to an updated `main`.
 
 ## Ivan project config
 
-<!-- Filled by /adopt, /discover, and /kickoff. Every pipeline phase reads this section. -->
-- GitHub: <owner>/<repo>
-- GitHub auth: <verified DD-MM-YYYY: issues/PRs + Projects v2 accessible>
+<!-- Filled by /adopt and /discover. Every pipeline phase reads this section. -->
+- Organization: <https://dev.azure.com/org>
+- ADO project: <project>
+- Repository: <repo>
+- Auth: <verified DD-MM-YYYY: work items + repos + pipelines accessible>
+- Process: <Agile | Scrum | Basic>
+- Feature type: <Feature | Product Backlog Item | Issue>
+- States: in progress = <Active>, terminal = <Closed>
+- Pipeline: <name> (id <n>), build validation policy on main: <verified DD-MM-YYYY>
 - Stack: <stack, or "open — decided during /discover">
-- Workflowy root: <short id> (level-1 item "<repo>")
 - Active project: (set by /discover)
 
 ### Projects
 
-<!-- One row per Workflowy level-2 project. /discover adds the row; /kickoff fills the board IDs. -->
+<!-- One row per phase. /discover adds the row when it creates the Epic + area path. -->
 
-| Project (Workflowy level 2) | wf short id | Docs folder | Board # | Project ID | Status field / Todo / In Progress / Done |
-|---|---|---|---|---|---|
-| | | | | | |
+| Project (phase) | Epic id | Area path | Docs folder |
+|---|---|---|---|
+| | | | |

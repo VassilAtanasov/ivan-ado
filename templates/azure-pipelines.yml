@@ -1,0 +1,44 @@
+# Quality gate — the same gate.ps1 developers and Ivan's Stop hook run locally.
+# Installed by /adopt at the repo root; adapt the tool installers to the stack.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    # Ivan commits docs/CLAUDE.md updates straight to main outside a PR
+    # (learning-coach, retrospective, discover, kickoff registry writes) —
+    # skip re-running the gate for those doc-only pushes.
+    exclude:
+      - docs/*
+      - CLAUDE.md
+
+# Azure Repos IGNORES `pr:` triggers. PR validation runs only through a build
+# validation BRANCH POLICY on main, which /adopt creates with:
+#   az repos policy build create --branch main --blocking true --enabled true \
+#     --build-definition-id <id> --repository-id <guid> --queue-on-source-update-only true \
+#     --manual-queue-only false --valid-duration 0 --display-name "Quality gate"
+# Without that policy nothing validates a pull request and auto-complete will
+# merge unvalidated code.
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UseDotNet@2
+    displayName: Install .NET SDK
+    inputs:
+      version: 10.0.x
+
+  - task: NodeTool@0
+    displayName: Install Node
+    inputs:
+      versionSpec: lts/*
+
+  - task: PowerShell@2
+    displayName: Quality gate
+    inputs:
+      filePath: gate.ps1
+      pwsh: true
+      failOnStderr: false
