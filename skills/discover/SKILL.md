@@ -28,21 +28,27 @@ Precondition: the project has an `## Ivan project config` section in CLAUDE.md (
 `/adopt`). If it is missing, tell the user to run `/adopt` first and stop. Read from it: the
 organization, ADO project, repository, **feature type**, **state names**, and the Projects table.
 
-1. `ado_cli.py whoami` must succeed. If it reports no credential, stop and ask — do not fall back
+1. **You must be inside a checkout of the configured repository.** `git rev-parse --show-toplevel`
+   and `git remote -v` — the remote must match the repository in the config. If this session is not
+   in that checkout, STOP before touching the board: the docs half of discovery (REQUIREMENTS.md,
+   ARCHITECTURE.md) has nowhere to go, and you would leave work items behind with no written
+   product truth to match them. Tell the user to clone the repo
+   (`git clone https://dev.azure.com/<org>/<project>/_git/<repo>`) and re-run from there.
+2. `ado_cli.py whoami` must succeed. If it reports no credential, stop and ask — do not fall back
    to inventing a plan in chat. (A PAT held by `az devops login` is invisible to the CLI; the fix
    is `AZURE_DEVOPS_PAT` in the environment or the repo's gitignored `.env`.)
-2. `ado_cli.py query --preset all-features --type Epic` → the phases. Present them with their
+3. `ado_cli.py query --preset all-features --type Epic` → the phases. Present them with their
    states and feature counts, and resolve the argument against them (exact title first, then
    unambiguous partial match). If the argument matches nothing, offer to create the Epic — after
    the user confirms the title and a one-paragraph description, `create --type Epic
    --description-file <file> --apply`.
-3. **Ensure the phase's area path**: `ado_cli.py area ensure "<phase>"` (dry run, then `--apply`).
+4. **Ensure the phase's area path**: `ado_cli.py area ensure "<phase>"` (dry run, then `--apply`).
    The area path is what scopes this phase's backlog for every later query — without it,
    `/autopilot` cannot tell one phase's features from another's.
-4. `ado_cli.py children <epic-id>` → everything already captured for this phase: existing Feature
+5. `ado_cli.py children <epic-id>` → everything already captured for this phase: existing Feature
    work items and any Tasks the user jotted underneath. Read their descriptions
    (`show <id>`) — this is your raw material, and the user has already done a first pass here.
-5. Read `docs/<project-slug>/REQUIREMENTS.md` and `docs/<project-slug>/ARCHITECTURE.md` (slug =
+6. Read `docs/<project-slug>/REQUIREMENTS.md` and `docs/<project-slug>/ARCHITECTURE.md` (slug =
    kebab-case of the phase title; copy the plugin's `templates/` versions in if absent), plus the
    repo-wide `docs/ARCHITECTURE.md` if it exists. If they are partially filled, summarize what is
    already decided and resume from the first incomplete section — do not re-ask settled questions.
@@ -134,6 +140,13 @@ Done when: the Epic holds the agreed Feature work items with stub descriptions, 
 and on the phase's area path; `docs/<project-slug>/REQUIREMENTS.md` §1–3 and §5–6 are filled with
 one FR-N per feature in §4; §7 (Open questions) is empty; and `docs/<project-slug>/ARCHITECTURE.md`
 records every decision this phase's build will need. Remove the "TEMPLATE" status lines.
+
+**Commit as you go, not only here.** At the end of each pass, commit what that pass settled —
+pass 1 the goal sections, pass 2 the FR-N entries, pass 3 the architecture decisions. Discovery is
+interactive and sessions get interrupted; an uncommitted REQUIREMENTS.md is the one artifact that
+cannot be reconstructed from the board, because the board holds titles and stubs while the docs hold
+the reasoning. If you reach Exit and `git status` still shows uncommitted doc changes, that is a bug
+in this run — commit them before reporting done.
 
 Record the phase in the `## Ivan project config` registry table in CLAUDE.md (phase title, Epic id,
 area path, docs folder), set it as the active project, and commit the docs. This commits straight

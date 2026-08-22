@@ -966,6 +966,16 @@ def build_parser() -> argparse.ArgumentParser:
     pr_wait.add_argument("--interval", type=float, default=15.0)
     pr_wait.add_argument("--max-interval", type=float, default=60.0)
 
+    # Accept --json after the subcommand too. SUPPRESS keeps an absent sub-level
+    # flag from overwriting the global one with its own default.
+    for subparser in subparsers.choices.values():
+        subparser.add_argument(
+            "--json",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="Raw JSON output",
+        )
+
     return parser
 
 
