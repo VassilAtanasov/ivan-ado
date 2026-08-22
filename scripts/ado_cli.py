@@ -55,6 +55,35 @@ HUMAN_GATED_POLICIES = {
     "Required reviewers",
     "Comment requirements",
 }
+POLICY_CHECK_HUMAN_GATED = 4   # `policy-check`: a blocking policy on the branch needs a person
+BUILD_TRIAGE_QUALITY = 0       # the build failed on our code — fix it
+BUILD_TRIAGE_INFRA = 7         # the build failed on the infrastructure — re-queue it
+# Failure text that means the agent/network/feed let go, not that the code is wrong.
+# Matched case-insensitively against a failed timeline record's issues.
+INFRA_FAILURE_SIGNS = (
+    "the agent request was aborted",
+    "lost communication with the server",
+    "the agent did not respond",
+    "no hosted parallelism has been purchased",
+    "we stopped hearing from agent",
+    "unable to load the service index for source",
+    "retrying 'findpackagesbyidasync",
+    "the http request to the remote webproxy",
+    "connection reset by peer",
+    "econnreset",
+    "etimedout",
+    "socket timeout",
+    "server error returned: 502",
+    "server error returned: 503",
+    "service unavailable",
+    "bad gateway",
+    "no space left on device",
+    "there is not enough space on the disk",
+    "the operation was canceled",
+    "timeout waiting for the pipeline agent",
+    "could not resolve host",
+    "temporary failure in name resolution",
+)
 DESCRIPTION_FIELD = "System.Description"
 SUMMARY_FIELDS = [
     "System.Id",
@@ -939,6 +968,176 @@ def cmd_pr_wait(args: argparse.Namespace) -> None:
         interval = min(interval * 1.5, args.max_interval)
 
 
+def branch_policies(repo: str, branch: str) -> list[dict[str, Any]]:
+    """Policy configurations that apply to `branch` in `repo` (exact-match scopes)."""
+    data = request_json("GET", project_path("_apis/policy/configurations"))
+    wanted_ref = ref(branch)
+    rid = repo_id(repo)
+    applies = []
+    for cfg in data.get("value", []):
+        if not cfg.get("isEnabled"):
+            continue
+        for scope in cfg.get("settings", {}).get("scope", []):
+            same_repo = scope.get("repositoryId") in (None, rid)
+            match_kind = scope.get("matchKind", "Exact").lower()
+            scope_ref = scope.get("refName") or ""
+            hit = (
+                scope_ref == wanted_ref
+                if match_kind == "exact"
+                else wanted_ref.startswith(scope_ref)
+            )
+            if same_repo and hit:
+                applies.append(cfg)
+                break
+    return applies
+
+
+def cmd_policy_check(args: argparse.Namespace) -> None:
+    """Is this branch's policy set compatible with unattended auto-complete?
+
+    /adopt runs this at setup time so a policy that can only be satisfied by a
+    person is found while the user is sitting there, not at 3am mid-autopilot.
+    """
+    policies = branch_policies(args.repo, args.branch)
+    rows = []
+    for cfg in policies:
+        name = cfg.get("type", {}).get("displayName", "policy")
+        rows.append(
+            {
+                "policy": name,
+                "blocking": bool(cfg.get("isBlocking")),
+                "humanGated": name in HUMAN_GATED_POLICIES,
+                "id": cfg.get("id"),
+            }
+        )
+    blockers = [r for r in rows if r["blocking"] and r["humanGated"]]
+    has_build = any(r["policy"] == "Build" and r["blocking"] for r in rows)
+    result = {
+        "branch": args.branch,
+        "repository": args.repo,
+        "policies": rows,
+        "buildValidation": has_build,
+        "autoMergeCompatible": not blockers,
+        "humanGatedBlockers": [r["policy"] for r in blockers],
+    }
+    if args.json:
+        print_json(result)
+    else:
+        if not rows:
+            print(f"No enabled policies apply to {args.branch}.")
+        for r in rows:
+            flags = []
+            if r["blocking"]:
+                flags.append("blocking")
+            if r["humanGated"]:
+                flags.append("HUMAN-GATED")
+            print(f"{r['policy']:<32} {', '.join(flags) or 'advisory'}")
+        if not has_build:
+            print(
+                "\nWARNING: no blocking Build policy on this branch — nothing validates a PR, "
+                "and auto-complete would merge unvalidated code."
+            )
+    if blockers:
+        fail(
+            POLICY_CHECK_HUMAN_GATED,
+            f"\n{args.branch} has blocking policies only a person can satisfy: "
+            f"{', '.join(r['policy'] for r in blockers)}. Ivan's PRs will sit unmerged until "
+            f"someone acts on them. Either scope the policy away from Ivan's branches or accept "
+            f"that every feature needs a manual approval.",
+        )
+
+
+def failing_build_evaluation(pr_id: int) -> tuple[int | None, str | None]:
+    """(build id, policy evaluation id) behind a rejected Build policy on this PR.
+
+    The evaluation id is what re-queues the build without touching the branch —
+    the right move when the build died on infrastructure rather than on our code.
+    """
+    for policy in pr_policies(pr_id):
+        if policy_name(policy) != "Build":
+            continue
+        if policy.get("status") not in ("rejected", "broken"):
+            continue
+        build = (policy.get("context") or {}).get("buildId")
+        if build:
+            return int(build), policy.get("evaluationId")
+    return None, None
+
+
+def build_timeline_issues(build_id: int) -> list[tuple[str, str]]:
+    timeline = request_json(
+        "GET",
+        project_path(f"_apis/build/builds/{build_id}/timeline"),
+    )
+    issues = []
+    for record in timeline.get("records", []):
+        if record.get("result") not in ("failed", "canceled"):
+            continue
+        for issue in record.get("issues") or []:
+            if issue.get("type") == "error":
+                issues.append((record.get("name", "?"), issue.get("message", "")))
+    return issues
+
+
+def cmd_build_triage(args: argparse.Namespace) -> None:
+    """Did the build fail on our code, or on the infrastructure?
+
+    A lost agent or a dead package feed is not a quality failure, and charging it
+    against the circuit breaker is what turns three flaky builds into a page.
+    """
+    build_id = args.build
+    evaluation_id = None
+    if build_id is None:
+        if args.pr is None:
+            fail(PR_WAIT_ERROR, "Pass a build id or --pr <id>.")
+        build_id, evaluation_id = failing_build_evaluation(args.pr)
+        if build_id is None:
+            fail(
+                PR_WAIT_ERROR,
+                f"No rejected Build policy with a build id on PR !{args.pr} — "
+                f"nothing to triage.",
+            )
+    build = request_json("GET", project_path(f"_apis/build/builds/{build_id}"))
+    issues = build_timeline_issues(build_id)
+    infra = [
+        (task, message)
+        for task, message in issues
+        if any(sign in message.lower() for sign in INFRA_FAILURE_SIGNS)
+    ]
+    # Canceled with no error at all is the classic vanished-agent shape.
+    verdict_infra = bool(infra) and len(infra) == len(issues) or (
+        build.get("result") == "canceled" and not issues
+    )
+    verdict = "INFRA" if verdict_infra else "QUALITY"
+    result = {
+        "buildId": build_id,
+        "buildNumber": build.get("buildNumber"),
+        "result": build.get("result"),
+        "url": build.get("_links", {}).get("web", {}).get("href"),
+        "verdict": verdict,
+        "evaluationId": evaluation_id,
+        "failures": [{"task": t, "message": m} for t, m in issues],
+    }
+    if args.json:
+        print_json(result)
+    else:
+        print(f"build {result['buildNumber']} (id {build_id}) result={build.get('result')}")
+        for task, message in issues:
+            print(f"  [{task}] {message.strip().splitlines()[0][:200]}")
+        print(f"VERDICT: {verdict}")
+        if verdict == "INFRA":
+            print("Re-queue the build validation policy; do not count this as a failed cycle.")
+            if evaluation_id:
+                print(
+                    f"  az repos pr policy queue --id {args.pr} "
+                    f"--evaluation-id {evaluation_id} --org <org>"
+                )
+        else:
+            print("The code is what failed. Fix it on the branch and push.")
+    if verdict == "INFRA":
+        sys.exit(BUILD_TRIAGE_INFRA)
+
+
 # --------------------------------------------------------------------- parser
 
 
@@ -1041,6 +1240,28 @@ def build_parser() -> argparse.ArgumentParser:
     pr_wait.add_argument("--interval", type=float, default=15.0)
     pr_wait.add_argument("--max-interval", type=float, default=60.0)
 
+    policy_check = subparsers.add_parser(
+        "policy-check",
+        help="Is a branch's policy set compatible with unattended auto-complete?",
+        description=(
+            "Exit 0 if every blocking policy on the branch can be satisfied by CI alone, "
+            "4 if one needs a person (Ivan's PRs would sit unmerged)."
+        ),
+    )
+    policy_check.add_argument("--repo", required=True)
+    policy_check.add_argument("--branch", default="main")
+
+    build_triage = subparsers.add_parser(
+        "build-triage",
+        help="Did a failed build fail on our code or on the infrastructure?",
+        description=(
+            "Exit 0 for a quality failure (fix the code), 7 for an infrastructure failure "
+            "(re-queue the policy; do not count it as a failed cycle)."
+        ),
+    )
+    build_triage.add_argument("build", type=int, nargs="?", help="Build id")
+    build_triage.add_argument("--pr", type=int, help="Find the failed build from this PR's policies")
+
     # Accept --json after the subcommand too. SUPPRESS keeps an absent sub-level
     # flag from overwriting the global one with its own default.
     for subparser in subparsers.choices.values():
@@ -1067,6 +1288,8 @@ COMMANDS = {
     "pr-create": cmd_pr_create,
     "pr-link": cmd_pr_link,
     "pr-wait": cmd_pr_wait,
+    "policy-check": cmd_policy_check,
+    "build-triage": cmd_build_triage,
 }
 
 

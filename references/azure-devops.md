@@ -236,6 +236,16 @@ it. Open the PR.
   improves by waiting.
 - A PR with every blocking policy approved but **no auto-complete set** will sit forever; `pr-wait`
   calls that out rather than timing out on it.
+- `ado_cli.py policy-check --repo <repo> --branch main` answers "can this branch auto-merge at
+  all?" — exit 4 means a blocking policy (minimum reviewers, required reviewers, comment
+  resolution) can only be satisfied by a person, so every one of Ivan's PRs will park. `/adopt`
+  runs it at setup so this is found with the user present, not mid-autopilot. It also warns when
+  no blocking Build policy applies, which is the reverse hazard.
+- `ado_cli.py build-triage --pr <pr>` reads the failed build's timeline and classifies it: exit 0
+  `QUALITY` (our code — fix it), exit 7 `INFRA` (dropped agent, dead feed, network timeout —
+  re-queue the policy evaluation with the `az repos pr policy queue` line it prints, and don't
+  spend a circuit-breaker strike on it). It is conservative on purpose: any non-infrastructure
+  error present makes the whole build QUALITY, because retrying a real failure only delays it.
 
 ## Safety
 

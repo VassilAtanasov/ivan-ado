@@ -168,6 +168,25 @@ Then:
    az repos policy merge-strategy create --project <project> --blocking true --enabled true \
      --branch main --repository-id <repo-guid> --allow-squash true
    ```
+4. **Check the policy set can actually auto-merge** — this is what decides whether Ivan ever
+   finishes a feature unattended:
+   ```
+   python <plugin>/scripts/ado_cli.py policy-check --repo <repo> --branch main
+   ```
+   Exit 0 means every blocking policy is satisfiable by CI alone. **Exit 4 means a blocking policy
+   needs a person** — minimum reviewers, required reviewers, or comment resolution — and every one
+   of Ivan's PRs will sit unmerged until someone clicks approve. Do not delete the policy to make
+   this pass; it may be there on purpose. Tell the user plainly what it is and let them choose:
+   scope it so it doesn't cover Ivan's feature branches, or accept a manual approval per feature.
+   Record the choice on the `Auto-merge` line of the config.
+
+   If the project keeps an approver policy, also check Azure Repos' **"allow requestors to approve
+   their own changes"** setting for the repo — without it, the identity behind the PAT cannot
+   approve its own PR, so auto-complete can never clear the policy on its own.
+
+   A missing blocking **Build** policy is the opposite failure and `policy-check` warns about it
+   too: nothing validates a PR, and auto-complete would merge unvalidated code. If you see that
+   warning, step 2 did not take effect.
 
 ## 5. Docs
 
@@ -192,6 +211,7 @@ Then:
   - Feature type: <Feature|Issue>
   - States: in progress = <Active>, terminal = <Closed>
   - Pipeline: <name> (id <n>), build validation policy on main: <verified DD-MM-YYYY>
+  - Auto-merge: <clean | needs manual approval: <policy name>>
   - Stack: <from user/architecture; "open — decided during /discover" is valid>
   - Active project: (set by /discover)
 
@@ -224,8 +244,10 @@ Then:
    destroyed the thing it was adopting. **Nothing you wrote may be left uncommitted at hand-off.**
 6. **Prove the PR gate is real** — the PR from step 5 is the proof, so use it rather than opening a
    throwaway: `ado_cli.py pr-wait <pr> --repo <repo>` must print the build validation policy's
-   status lines. If no policy shows up, step 4.2 did not take effect — fix it before handing off,
-   because every later merge depends on it. Only if sections 5–7 changed nothing, open a throwaway
+   status lines, and must exit 0 — the PR merged itself. Any other exit is the enforcement telling
+   you something: 4 means a human-gated policy is in the way (step 4.4 should have caught it), and
+   no policy lines at all mean step 4.2 did not take effect. Fix it before handing off, because
+   every later merge depends on it. Only if sections 5–7 changed nothing, open a throwaway
    branch and PR for the check instead, and abandon it afterwards
    (`az repos pr update --id <pr> --status abandoned`).
 

@@ -1,6 +1,6 @@
 {
   "name": "ivan-ado",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "description": "Ivan — an autonomous SDLC agent on Azure DevOps: Boards-driven discovery (Epic → Feature), work items as the single backlog, and a fully autonomous gate-governed build pipeline (implement, test, review, verify, PR, pipeline, merge).",
   "author": {
     "name": "Vassil Atanasov"

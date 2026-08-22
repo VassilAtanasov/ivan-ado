@@ -70,8 +70,11 @@ isolates a fixed network port two concurrently-running app instances would both 
    triggers, so a branch policy is the only pre-merge check that exists), but it is not a place
    Ivan waits for you. `pr-wait` classifies every outcome by exit code: a red build gets fixed on
    the branch, a branch that fell behind `main` gets rebased and force-pushed, a slow build gets
-   waited out. Only a human-gated policy, an abandoned PR, or a conflict Ivan can't resolve with
-   confidence in both sides' intent reaches you.
+   waited out, and a build that died on a dropped agent or a dead package feed gets re-queued
+   rather than counted against the circuit breaker. `/adopt` checks at setup time that no blocking
+   policy on `main` needs a human, so that's found with you in the room. Only a human-gated policy,
+   an abandoned PR, or a conflict Ivan can't resolve with confidence in both sides' intent reaches
+   you.
 6. **Coding standards, machine-enforced first** — `/adopt` installs the stack's linter/compiler
    config (for .NET: `.editorconfig` + `Directory.Build.props`, so analyzer and style rules become
    build errors) and writes the judgement rules the tooling *can't* check into `docs/CONVENTIONS.md`,

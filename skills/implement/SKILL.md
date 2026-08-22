@@ -104,11 +104,25 @@ isolate.
    | Exit | Meaning | Your move |
    |---|---|---|
    | 0 | Merged | Go to step 8. |
-   | 2 | A blocking build policy rejected | Read the failing run (`az pipelines runs show`/`runs artifact`, or the PR's build link), fix on the branch, `./gate.ps1`, push, wait again. Counts as a cycle. |
+   | 2 | A blocking build policy rejected | **Triage before you fix** (below) — a lost agent is not your bug. |
    | 3 | Merge conflicts with `main` | Rebase (below), then wait again. **Does not** count as a cycle — landing behind another feature is routine, not a failure. |
    | 4 | Needs a human | Escalate now: comment the reason on the work item, push notification, `ExitWorktree` with `action: "keep"`, stop. Waiting cannot fix it. |
    | 5 | PR abandoned | Escalate the same way — someone intervened deliberately. |
    | 6 | Timed out, still in progress | Not a failed build. Wait again (`pr-wait` is idempotent). After the **second** timeout on one PR, escalate as a stuck pipeline. |
+
+   **Triaging exit 2** — `ado_cli.py build-triage --pr <pr>` reads the failed build's timeline and
+   says whether the code failed or the infrastructure did:
+   - `VERDICT: QUALITY` (exit 0) — your bug. Read the failing task, fix on the branch,
+     `./gate.ps1`, push, `pr-wait` again. **Counts as a cycle.**
+   - `VERDICT: INFRA` (exit 7) — a dropped agent, a dead package feed, a network timeout. Re-queue
+     the policy with the `az repos pr policy queue` line it prints and `pr-wait` again, without
+     touching the branch. **Does not count as a cycle** the first time. If the same build fails on
+     infrastructure twice, stop treating it as flake — escalate as a stuck pipeline, because
+     something is wrong with the agent pool and no amount of retrying fixes that.
+
+   Triage is deliberately conservative: a build with any non-infrastructure error in it is called
+   QUALITY even when an infrastructure error appears alongside. Retrying a real test failure wastes
+   a build; treating a real failure as flake ships a bug.
 
    **Rebasing on exit 3** — from inside the worktree, on the feature branch:
    `git fetch origin && git rebase origin/main`. If the rebase applies cleanly, re-run
@@ -138,10 +152,11 @@ isolate.
 
 ## Circuit breaker
 
-Count gate/review/verify cycles, and `pr-wait` exit 2 (a red build) alongside them — they are all
-"Ivan produced code that didn't hold up." **Do not count what isn't a quality failure:** a rebase
-after exit 3, or a re-wait after exit 6, is the pipeline working as designed and must not spend a
-strike. Exits 4 and 5 skip the counter entirely and escalate on the spot.
+Count gate/review/verify cycles, and a red build that `build-triage` calls QUALITY alongside them —
+they are all "Ivan produced code that didn't hold up." **Do not count what isn't a quality
+failure:** a rebase after exit 3, a re-wait after exit 6, or the first re-queue of an INFRA build is
+the pipeline working as designed and must not spend a strike. Exits 4 and 5 skip the counter
+entirely and escalate on the spot.
 
 If a step fails on the 3rd attempt: comment your best diagnosis
 on the work item (naming the worktree path so a human can pick the work up from exactly where it

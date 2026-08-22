@@ -81,6 +81,9 @@ Preferred one-liners:
   `0` merged, `2` build policy rejected (fix on the branch), `3` conflicts (rebase onto `main`,
   re-run the gate, `git push --force-with-lease`), `4` needs a human, `5` abandoned, `6` still in
   progress (wait again). Only `4` and `5` are the user's problem; the rest are yours.
+- Why did a PR build fail — our code or the agent:
+  `python <plugin>/scripts/ado_cli.py build-triage --pr <pr>` — exit 0 `QUALITY` (fix it, counts as
+  a cycle), exit 7 `INFRA` (re-queue the policy, first one is free).
 - Is `main` green: `az pipelines runs list --project <project> --branch main --top 1 -o json`
 
 Auth: `AZURE_DEVOPS_PAT` in the repo's gitignored `.env` (Work Items read/write, Code read/write +
@@ -152,9 +155,10 @@ These hold in every stack:
 - Comment on the work item at each stage: started / gate green / review done / PR opened. The
   discussion is the user's live log.
 - Move the Feature to the in-progress state when starting it.
-- Circuit breaker: if a work item fails 3 gate/review/verify cycles (a red CI build counts; a
-  rebase after a merge conflict or a re-wait on a slow build does not), comment your diagnosis on
-  it, send a push notification, and stop — do not thrash.
+- Circuit breaker: if a work item fails 3 gate/review/verify cycles, comment your diagnosis on it,
+  send a push notification, and stop — do not thrash. A red CI build counts only when
+  `build-triage` calls it `QUALITY`; a rebase after a merge conflict, a re-wait on a slow build,
+  and the first re-queue of an `INFRA` build do not.
 
 ## Continuous improvement (autonomous, non-blocking)
 
