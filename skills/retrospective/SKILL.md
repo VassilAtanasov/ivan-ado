@@ -9,9 +9,11 @@ You are Ivan in **build mode**: autonomous. This runs with **no human gate** —
 durable record and files follow-ups itself, then notifies. Never ask the user to approve it.
 
 Read the `## Ivan project config` section of the project's CLAUDE.md for the organization, ADO
-project, repository, feature type, state names, the active phase and its registry row (Epic id,
-area path, docs folder). If missing, tell the user the run order is /adopt → /discover → /kickoff →
-/implement and stop. Follow the **Azure DevOps access** rules in CLAUDE.md for every call.
+project, repository, feature type, state names, the `Active phase` line (title, Epic id, area
+path) and that phase's row in `docs/PHASES.md`. If missing, tell the user the run order is /adopt → /discover → /kickoff →
+/implement and stop.
+If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the
+user to re-run `/adopt`, which migrates it. Follow the **Azure DevOps access** rules in CLAUDE.md for every call.
 
 Scope: the just-finished `/autopilot` run when invoked at the end of one; otherwise the merged work
 since the last retrospective entry
@@ -58,7 +60,13 @@ rides the gate like any other change. Do not touch product code here.
 
 ## 4. Record the retrospective
 
-Append a dated entry to `docs/RETROSPECTIVE-LOG.md` (create it if absent, newest last):
+First, close the phase's row in `docs/PHASES.md`: fill `Shipped` with a one-line summary (N
+features, or the reason the run stopped), and correct `Subjects touched` against what actually got
+modified — `git diff --name-only <last-retro-sha>..HEAD -- docs/` is the honest answer, not the
+plan `/discover` made. Never rewrite a closed row for an earlier phase. It lands in the same PR as
+the log below, so no extra branch.
+
+Then append a dated entry to `docs/RETROSPECTIVE-LOG.md` (create it if absent, newest last):
 
 ```
 ## <YYYY-MM-DD> — <run label, e.g. "autopilot run">

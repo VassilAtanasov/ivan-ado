@@ -15,16 +15,18 @@ You have two modes, and you know which one you are in:
 the work item, skip that item, and continue with the next one if any.
 
 **The open-questions rule**: whenever open questions arise that the user is not answering right
-now — recorded in the active project's `docs/<project-slug>/REQUIREMENTS.md` §7, discovered
-mid-build, or left unresolved at the end of any session — send a push notification listing them,
-so the user never has to poll to find out their decision is blocking progress.
+now — recorded in a Feature's `## Open questions` section, raised as a discussion comment on its
+Epic, discovered mid-build, or left unresolved at the end of any session — send a push notification
+listing them, so the user never has to poll to find out their decision is blocking progress.
+**An open question is written exactly once, on the work item it blocks. It never goes into
+`docs/`.**
 
 ## The plan lives in Azure Boards
 
 | Level | Work item | Maps to |
 |---|---|---|
 | 1 | the ADO team project and its Azure Repo | the repository; never auto-created |
-| 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | `docs/<project-slug>/`; the Area Path is the backlog filter |
+| 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | a row in `docs/PHASES.md`; the Area Path is the backlog filter. **Not** a docs folder — an Epic touches N subject docs |
 | 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, plus `ready` once `/kickoff` settles it |
 | 4+ | child **Task** items, description bullets, discussion comments | raw material for discovery; never built directly |
 
@@ -35,8 +37,22 @@ second object to create**: the Feature *is* the backlog item, which is why nothi
 sync. The `ready` tag is the only thing separating a stub from buildable work, so never add it
 outside `/kickoff`, and never build a feature that lacks it. `/implement <id>` then builds it.
 
-Azure Boards is the source of truth for the *plan and the execution*; `docs/` for the *product
-truth*. Titles stay ≤ 15 words and carry their `FR-N` prefix; detail goes in the Description.
+**The board holds what we *intend* to be true; `docs/` holds what *is* true and why.** A Feature's
+goal and acceptance criteria and an Epic's phase goal live on the board and nowhere else — there is
+no doc copy to keep in sync. `docs/ARCHITECTURE.md` is the single system doc (stack, how to run it,
+layout, conventions, `S-N`, the subject map in §7, the global decision index in §8), and each
+subject in that map has one `SUBJECT.md` carrying how it behaves today, its tuning values, the
+`D-NN` it owns and its parity against the reference product. On a rule the code obeys, the subject
+docs outrank the board.
+
+**`/implement` is the only thing that writes into `docs/`.** `/discover` and `/kickoff` read them
+so they do not re-decide what is settled, and record their conclusions on the work item — the Epic
+description for a phase-wide decision, `## Implementation notes` on a Feature for a feature-scoped
+one. A decision that has not shipped is intent, and intent lives on the board. Decision ids are
+global and permanent: never renumber one, never reuse one, and allocate a new one only by the
+procedure in `docs/ARCHITECTURE.md` §9.
+
+Titles stay ≤ 15 words and carry their `FR-N` prefix; detail goes in the Description.
 Writes need a credential (see below) and are dry-run until the user says go.
 **Never delete a work item** — `ado_cli.py` has no delete command on purpose.
 
@@ -121,9 +137,13 @@ A feature is done only when ALL of these hold:
    fixes; send fixes back to the same reviewer as a delta re-review, not a fresh full review).
 4. `qa-verifier` subagent confirmed every acceptance criterion on the work item against the running
    app. Review and QA run in parallel; after fixes, only failed/affected criteria are re-verified.
-5. PR created, linked to the work item, CI green, squash-merged.
-6. The Feature moved to the terminal state (non-blocking — report and move on if the call fails).
-7. Push notification sent to the user ("Feature #N complete: <title>").
+5. The subject docs this feature touched are updated **in the same PR as the code**: §2 how it
+   behaves today, §3 any new named constant, a `D-NN` for every decision taken while building
+   (plus its row in `docs/ARCHITECTURE.md` §8), and the §5 parity row. A behaviour change that
+   ships with a stale subject doc is not done.
+6. PR created, linked to the work item, CI green, squash-merged.
+7. The Feature moved to the terminal state (non-blocking — report and move on if the call fails).
+8. Push notification sent to the user ("Feature #N complete: <title>").
 
 Never merge on red CI — the build validation branch policy on `main` enforces this server-side, so
 never bypass a policy (`--bypass-policy`) to get a merge through. The PR is not a checkpoint that
@@ -202,12 +222,12 @@ This runs without a human gate and never blocks or reopens a feature:
 - Run commands: <per component: what starts it, and the port override>
 - QA tooling: <what the qa-verifier drives the app with>
 - Supply chain: <the advisory check per stack>
-- Active project: (set by /discover)
+- Doc taxonomy: <systems+platform (reference: <product>) | subjects (no reference product)>
+- Active phase: (set by /discover)
 
-### Projects
+### Phases
 
-<!-- One row per phase. /discover adds the row when it creates the Epic + area path. -->
-
-| Project (phase) | Epic id | Area path | Docs folder |
-|---|---|---|---|
-| | | | |
+**The phase ledger is `docs/PHASES.md`**, not this file. It has one row per phase — title, Epic id,
+area path, the subjects it touched, and what shipped — and it is the only place a phase is joined
+to the docs it changed. An Epic is a slice of *time*; a subject doc is a slice of the *system*, and
+the relationship is many-to-many.

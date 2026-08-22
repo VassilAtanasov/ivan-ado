@@ -12,7 +12,7 @@ remains the written **product truth**.
 | Level | Work item | Maps to |
 |---|---|---|
 | 1 | the **ADO team project** (e.g. `MW3`) and its Azure Repo | the repo itself; never auto-created |
-| 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | `docs/<project-slug>/`; the Area Path is the backlog filter |
+| 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | a row in `docs/PHASES.md`; the Area Path is the backlog filter. **Not** a docs folder — see below |
 | 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, and `ready` once `/kickoff` has settled it |
 | 4+ | **Task** children, description bullets, discussion comments | raw material for discovery; never built directly |
 
@@ -33,7 +33,19 @@ rationale, acceptance criteria, examples — goes in the **Description**, in thi
 Two skills fill the board, and neither does the other's job:
 
 - `/discover <project>` — breadth, one run per phase: which Features the Epic contains, each with a
-  one-or-two-line stub description, plus its REQUIREMENTS/ARCHITECTURE docs.
+  one-or-two-line stub description and a `Subjects:` line; the phase goal, success criteria,
+  out-of-scope and architecture decisions written into the **Epic's description**; and a row in
+  `docs/PHASES.md`. It writes no other docs.
+
+**An Epic is not a docs folder.** An Epic is a slice of *time*; a docs subject is a slice of the
+*system*. One Epic touches several subjects, and one subject is touched by many Epics over the life
+of the repository. `docs/PHASES.md` is the only place the two are joined. Anything that assumes
+`docs/<phase-slug>/` is pre-3.0.
+
+**The board holds what we intend to be true; `docs/` holds what is true and why.** `/discover` and
+`/kickoff` read the docs and write only to the board; **`/implement` is the only thing that writes
+into `docs/`**, in the same PR as the code. A decision that has not shipped is intent, and intent
+lives on the board.
 - `/kickoff <feature>` — depth, one run per Feature: settles it with the user, writes the full
   description, and adds the **`ready`** tag. **There is no second object to create** — the Feature
   *is* the backlog item. Open questions block the feature instead of becoming guesses.
@@ -176,10 +188,19 @@ not close the item:
 ## Landing a change on `main`
 
 **Every phase of the SDLC ends by landing its work — never by leaving it in the working tree.** A
-skill that writes a file and stops has produced nothing durable: `/discover`'s REQUIREMENTS.md is
-the one artifact that cannot be reconstructed from the board, because the board holds titles and
-stubs while the docs hold the reasoning. The rule is the same for every skill that writes to the
-repo: **commit at the end of each phase, and land it before reporting done.** If you reach a
+skill that writes a file and stops has produced nothing durable. The board and the docs are both
+durable and neither reconstructs the other: the board records what we *intend* to be true — a
+feature's acceptance contract, a phase's goal — while `docs/` records what *is* true and why. Lose
+the docs and every reason behind the code is gone, and no amount of reading the board brings it
+back. The rule is the same for every skill that writes to the repo: **commit at the end of each
+phase, and land it before reporting done.**
+
+**Decision ids and concurrent PRs.** `docs/ARCHITECTURE.md` §8 is append-only and ascending, one
+row per line, so two branches that allocate the same `D-NN` collide textually at that line instead
+of merging into a silent duplicate. On such a conflict: the row already on `main` keeps its id;
+renumber your own decision to the next free id — heading, index row and every reference — in the
+same rebase, re-run the gate, `git push --force-with-lease`. An id that has reached `main` is
+frozen forever; a gap left by an abandoned branch is fine and is never filled. If you reach a
 skill's Exit and `git status` still shows uncommitted changes you made, that is a bug in the run.
 
 **`main` is protected, so "push to `main`" does not work.** `/adopt` §4.2 creates a *blocking*

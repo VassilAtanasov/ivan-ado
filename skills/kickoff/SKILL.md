@@ -25,8 +25,8 @@ batch the interviews.
 ## 0. Orient
 
 1. Read the `## Ivan project config` section of CLAUDE.md for the organization, ADO project,
-   repository, feature type, state names, the active phase and its registry row (Epic id, area
-   path, docs folder). If there is no active phase, tell the user to run `/discover <phase>` first
+   repository, feature type, state names, and the `Active phase` line (title, Epic id, area path).
+   If there is no active phase, tell the user to run `/discover <phase>` first
    and stop. `ado_cli.py whoami` must succeed — if it doesn't, stop and ask.
 2. Resolve the feature among the active phase's children (`ado_cli.py children <epic-id>`, exact
    title first, then unambiguous partial match). If it isn't there, say so and offer to add it via
@@ -34,10 +34,16 @@ batch the interviews.
 3. `ado_cli.py show <id> --comments` → the stub description, any open-question comments, and
    `children <id>` for Tasks the user jotted underneath. Read them: this is the user's own thinking
    and it outranks yours.
-4. Read the phase's `docs/<project-slug>/REQUIREMENTS.md` (its FR-N entry, the non-goals in §6) and
-   `ARCHITECTURE.md` plus the repo-wide `docs/ARCHITECTURE.md`. The feature must fit the
-   architecture already decided; if it can't, that is a finding to raise, not to design around
-   silently. If the phase docs are missing or half-filled, send the user back to `/discover`.
+4. Read, in this order: the **Epic's description** (`show <epic-id>`) for the phase goal, success
+   criteria, out-of-scope and the architecture decisions discovery settled; `docs/ARCHITECTURE.md`
+   §5 cross-cutting conventions and §6 standing decisions; and the `SUBJECT.md` of every subject on
+   the stub's `Subjects:` line — §2 how it behaves today, §3 its tuning values, §4 its decisions,
+   §5 its parity gaps. The feature must fit what those decisions already settled; if it can't, that
+   is a finding to raise with the user, not to design around silently — a feature that contradicts
+   a `D-NN` either gets redesigned or supersedes that decision explicitly, never quietly. If the
+   phase has no `docs/PHASES.md` row, send the user back to `/discover`. If any
+   `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the user to
+   re-run `/adopt`, which migrates it.
 5. **If the feature is already tagged `ready`**, say so and ask whether to refine it, or stop.
    Refining is fine while its state is still the initial one; once `/implement` has moved it to the
    in-progress state or beyond, leave it alone and tell the user.
@@ -92,22 +98,28 @@ Rules:
   `#` will not survive the shell.
 - Never delete a work item, and leave the user's child Tasks untouched.
 
-Then update this feature's FR-N entry in `docs/<project-slug>/REQUIREMENTS.md` with the same
-acceptance conditions (the docs are the product truth; the work item is its board face — they must
-not drift), add anything the interview surfaced to §5 or §6, and **land the docs** — branch, commit,
-push, and open an auto-completing PR per **Landing a change on `main`** in
-`references/azure-devops.md`. `main` is protected, so a direct push is rejected with `TF402455`.
-Do not report the kickoff done while your doc edits are still only in the working tree: the work
-item carries the acceptance criteria, but the docs carry the reasoning, and only one of the two is
-reconstructible. If a simultaneous `/kickoff` session on this same phase already landed a docs
-change, rebase your branch on the updated `main` rather than forcing.
+**`/kickoff` writes no docs.** The Feature description is the deliverable, and the acceptance
+criteria are not mirrored anywhere — the mirror is what used to drift. Two things the interview
+commonly settles need a home, and neither is a doc edit here:
+
+- **A tuning value** ("bases produce one unit every 1.4s") goes into `## Acceptance criteria` as
+  the externally checkable statement. It reaches the subject doc's §3 only when `/implement` lands
+  the named constant, in the same PR — a §3 row citing a symbol that does not exist yet is a lie
+  the next reader will act on.
+- **A decision** taken in the interview goes into the description under `## Implementation notes`,
+  phrased as the decision and its reason. `/implement` promotes it to a `D-NN` in the owning
+  subject when the code lands, and allocates the id then. There is no exception that reaches for a
+  file: a decision that has not shipped is intent, and intent lives on the board.
+
+Also correct the `Subjects:` line on the description if the interview changed which subject docs
+this feature touches — `/implement` reads it to know which ones it must update.
 
 ## 3. Gate — never mark an unsettled feature ready
 
 Do not proceed to step 4 if any acceptance criterion is ambiguous, the feature contradicts the
 architecture, or a question the user deferred is still open. Instead: write the open questions into
-the description's `## Open questions` section AND `docs/<project-slug>/REQUIREMENTS.md` §7 — never
-only in chat — send a push notification ("<phase>: <feature> has N open questions"), and stop. The
+the description's `## Open questions` section — that is their only home, never in chat and never in
+`docs/` — send a push notification ("<phase>: <feature> has N open questions"), and stop. The
 feature keeps its stub status, so `/autopilot` will not pick it up: an unanswered question blocks
 the build rather than becoming a guess in it.
 

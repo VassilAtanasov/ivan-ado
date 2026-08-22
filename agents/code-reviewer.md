@@ -30,6 +30,11 @@ Hunt, in priority order:
    meaningful, happy-path-only coverage where failure paths matter.
 4. **Standards violations** — the rules in CLAUDE.md and `docs/CONVENTIONS.md` (e.g. forbidden
    `any` types, suppressed warnings without a constraint comment, untested public API surface).
+5. **Stale documentation** — the diff changes behaviour in a subject (a rule, a tuning constant, a
+   boundary) and the branch carries no matching update to that subject's `SUBJECT.md`: §2 how it
+   behaves today, §3 a row for any new named constant, §4 a `D-NN` for a decision taken while
+   building. Report it as **Major**. You are the only reviewer that reads the whole diff, and the
+   Definition of Done requires the doc update in the same PR.
 
 Do NOT comment on: formatting/style (the formatter and linters own it, and the gate already fails on
 it), naming taste, hypothetical future needs, or anything you cannot tie to a concrete failure or
