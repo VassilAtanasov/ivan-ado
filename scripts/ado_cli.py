@@ -829,7 +829,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
 
 
 def cmd_pr_link(args: argparse.Namespace) -> None:
-    """Attach a PR to a work item as an ArtifactLink (what `Closes #N` did on GitHub)."""
+    """Attach a PR to a work item as an ArtifactLink — Azure Repos has no `Closes #N` keyword."""
     artifact = (
         f"vstfs:///Git/PullRequestId/{project_id()}%2F{repo_id(args.repo)}%2F{args.pr}"
     )
@@ -892,7 +892,7 @@ def fail(code: int, message: str) -> None:
 
 
 def cmd_pr_wait(args: argparse.Namespace) -> None:
-    """The blocking wait `gh pr checks --watch` gave us; Azure DevOps has no equivalent.
+    """Block until the PR reaches a terminal outcome; Azure DevOps has no blocking checks-watch.
 
     Exits with a PR_WAIT_* code saying *why* it stopped, because the caller's next
     move is completely different for a red build, a conflicted branch, and a PR

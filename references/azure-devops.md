@@ -5,9 +5,9 @@ board. Source: Azure DevOps REST API 7.1 and the `azure-devops` CLI extension (c
 
 ## Ivan's board contract
 
-Azure Boards is the source of truth for the **plan and the execution at once** — this is the
-difference from the Workflowy/GitHub arrangement it replaces, where the plan and the backlog were
-two copies of the same text. `docs/` remains the written **product truth**.
+Azure Boards is the source of truth for the **plan and the execution at once**: one object per
+feature, so the plan and the backlog can never drift into two copies of the same text. `docs/`
+remains the written **product truth**.
 
 | Level | Work item | Maps to |
 |---|---|---|
@@ -38,9 +38,8 @@ Two skills fill the board, and neither does the other's job:
   description, and adds the **`ready`** tag. **There is no second object to create** — the Feature
   *is* the backlog item. Open questions block the feature instead of becoming guesses.
 
-**The `ready` tag is the discovery→build boundary.** With one object per feature there is nothing
-else to distinguish a `/discover` stub from a settled feature — on GitHub that job was done by the
-issue's existence. `/discover` tags features `ivan`; only `/kickoff` adds `ready`; `/autopilot`
+**The `ready` tag is the discovery→build boundary.** With one object per feature, the tag is the
+only thing distinguishing a `/discover` stub from a settled feature. `/discover` tags features `ivan`; only `/kickoff` adds `ready`; `/autopilot`
 builds nothing without it. Removing that filter would let autopilot build a one-line placeholder as
 a guess.
 
@@ -222,7 +221,7 @@ it. Open the PR.
   and must verify it fires — without it, auto-complete merges unvalidated code.
 - `trigger.paths.exclude` in `azure-pipelines.yml` replaces the Actions `paths-ignore` for
   doc-only pushes to `main`.
-- There is no blocking watch equivalent to `gh pr checks --watch`; `ado_cli.py pr-wait` polls the
+- Azure DevOps has no blocking "wait for this PR's checks" command; `ado_cli.py pr-wait` polls the
   PR plus its policy evaluations with backoff. **Its exit code classifies the outcome**, because
   the caller's next move differs completely per case: `0` merged, `2` a blocking build policy
   rejected (fixable on the branch), `3` the branch no longer merges cleanly (rebase and

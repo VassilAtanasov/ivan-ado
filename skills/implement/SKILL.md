@@ -89,7 +89,7 @@ isolate.
 
    The description file holds the summary of approach, review findings fixed, and QA results —
    `--description-file`, never inline, so backticks and quotes survive. `--work-item` creates the
-   link that replaces GitHub's `Closes #N`; the terminal state is set by you in step 8, not by the
+   PR→work-item link (Azure Repos has no `Closes #N` keyword); the terminal state is set by you in step 8, not by the
    merge (see the board contract for why).
 
    Then wait: `ado_cli.py pr-wait <pr> --repo <repo>`. It blocks, printing policy status as it

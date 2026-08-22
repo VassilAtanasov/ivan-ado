@@ -105,7 +105,8 @@ named and bounded, with a one-or-two-line description saying what it covers. Dep
 
 Goal: recorded, justified technical decisions for this phase's stack (see the stack line in the
 Ivan project config; if the stack is still open, choosing it is part of this pass — and once it is
-chosen, run `/adopt`'s section 3b to install the stack's lint config and CONVENTIONS.md).
+chosen, run `/adopt`'s sections 3–3d to record the stack profile and install the lint config,
+  CONVENTIONS.md, the gate's supply-chain step and the QA tooling).
 - Start from the repo-wide `docs/ARCHITECTURE.md` if earlier phases established one: this phase's
   file records what it **adds or changes**, and defers to the repo-wide file for everything else.
   For the first phase, the decisions you make here are the system baseline — after the pass,

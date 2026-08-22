@@ -1,14 +1,20 @@
 # Quality gate — the same gate.ps1 developers and Ivan's Stop hook run locally.
-# Installed by /adopt at the repo root; adapt the tool installers to the stack.
+# Installed by /adopt at the repo root. /adopt ADAPTS this file to the project's stack profile
+# (CLAUDE.md → `## Ivan project config`): keep the installer tasks for the runtimes the project
+# actually has, delete the rest, and add whatever the gate's own steps need on the agent.
+#
+# The rule: every step gate.ps1 runs locally must be runnable here. A tool that exists on the
+# developer machine and not on the agent turns a green branch red for a reason that is not a
+# defect — which is exactly the noise the circuit breaker cannot distinguish from a real failure.
 
 trigger:
   branches:
     include:
       - main
   paths:
-    # Ivan commits docs/CLAUDE.md updates straight to main outside a PR
-    # (retrospective, discover, kickoff registry writes) —
-    # skip re-running the gate for those doc-only pushes.
+    # Doc-only merges (discover, kickoff, retrospective) can't break the gate, so skip
+    # re-running it on the resulting main commit. This filter applies to the CI trigger only —
+    # the build validation branch policy still validates every PR, doc-only ones included.
     exclude:
       - docs/*
       - CLAUDE.md
@@ -23,9 +29,12 @@ trigger:
 pr: none
 
 pool:
+  # windows-latest only if the stack needs it (desktop UI, IIS, a Windows-only dependency) —
+  # and then re-check that gate.ps1 behaves identically on both.
   vmImage: ubuntu-latest
 
 steps:
+  # --- Runtimes: keep only what the stack profile lists -----------------------------------
   - task: UseDotNet@2
     displayName: Install .NET SDK
     inputs:
@@ -36,9 +45,31 @@ steps:
     inputs:
       versionSpec: lts/*
 
+  # - task: UsePythonVersion@0
+  #   displayName: Install Python
+  #   inputs:
+  #     versionSpec: '3.12'
+  # - script: python -m pip install -e ".[dev]" pip-audit
+  #   displayName: Install Python dev dependencies (incl. the supply-chain tool)
+
+  # --- Tooling the gate itself invokes ------------------------------------------------------
+  # Only if the GATE runs browser tests. A driver used solely by the local qa-verifier does not
+  # belong on the agent.
+  # - script: npx playwright install --with-deps chromium
+  #   displayName: Install Playwright browsers
+  #   workingDirectory: client
+
+  # A database or broker the tests need goes here as a service container or a docker run step,
+  # with its connection string exposed through `variables:` — the same names the local run uses.
+
   - task: PowerShell@2
     displayName: Quality gate
     inputs:
       filePath: gate.ps1
       pwsh: true
       failOnStderr: false
+    env:
+      # The supply-chain steps reach the advisory databases from here. Never set
+      # GATE_SKIP_SUPPLY_CHAIN in CI — that is the one variable that would make this build lie.
+      # Raise GATE_COVERAGE_MIN once the suite is established.
+      GATE_COVERAGE_MIN: 0
