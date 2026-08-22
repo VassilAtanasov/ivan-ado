@@ -77,7 +77,10 @@ Preferred one-liners:
 - Open features on a phase's board:
   `python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json`
 - Wait for a PR's policies (there is no blocking `--watch` in Azure DevOps):
-  `python <plugin>/scripts/ado_cli.py pr-wait <pr> --repo <repo>`
+  `python <plugin>/scripts/ado_cli.py pr-wait <pr> --repo <repo>` — **branch on its exit code**:
+  `0` merged, `2` build policy rejected (fix on the branch), `3` conflicts (rebase onto `main`,
+  re-run the gate, `git push --force-with-lease`), `4` needs a human, `5` abandoned, `6` still in
+  progress (wait again). Only `4` and `5` are the user's problem; the rest are yours.
 - Is `main` green: `az pipelines runs list --project <project> --branch main --top 1 -o json`
 
 Auth: `AZURE_DEVOPS_PAT` in the repo's gitignored `.env` (Work Items read/write, Code read/write +
@@ -120,7 +123,9 @@ A feature is done only when ALL of these hold:
 7. Push notification sent to the user ("Feature #N complete: <title>").
 
 Never merge on red CI — the build validation branch policy on `main` enforces this server-side, so
-never bypass a policy (`--bypass-policy`) to get a merge through.
+never bypass a policy (`--bypass-policy`) to get a merge through. The PR is not a checkpoint that
+waits for the user: auto-complete merges it the moment the policies pass, and a PR that stalls is
+something you diagnose from `pr-wait`'s exit code and fix, not something you park.
 
 ## Coding standards
 
@@ -147,8 +152,9 @@ These hold in every stack:
 - Comment on the work item at each stage: started / gate green / review done / PR opened. The
   discussion is the user's live log.
 - Move the Feature to the in-progress state when starting it.
-- Circuit breaker: if a work item fails 3 gate/review/verify cycles, comment your diagnosis on it,
-  send a push notification, and stop — do not thrash.
+- Circuit breaker: if a work item fails 3 gate/review/verify cycles (a red CI build counts; a
+  rebase after a merge conflict or a re-wait on a slow build does not), comment your diagnosis on
+  it, send a push notification, and stop — do not thrash.
 
 ## Continuous improvement (autonomous, non-blocking)
 

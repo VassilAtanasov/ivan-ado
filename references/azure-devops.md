@@ -223,8 +223,19 @@ it. Open the PR.
 - `trigger.paths.exclude` in `azure-pipelines.yml` replaces the Actions `paths-ignore` for
   doc-only pushes to `main`.
 - There is no blocking watch equivalent to `gh pr checks --watch`; `ado_cli.py pr-wait` polls the
-  PR plus its policy evaluations with backoff and exits non-zero on a failed blocking policy, an
-  abandoned PR, or a timeout.
+  PR plus its policy evaluations with backoff. **Its exit code classifies the outcome**, because
+  the caller's next move differs completely per case: `0` merged, `2` a blocking build policy
+  rejected (fixable on the branch), `3` the branch no longer merges cleanly (rebase and
+  force-push), `4` only a human can move it forward, `5` abandoned, `6` timed out while still
+  making progress, `1` an error. Skills must branch on the code — treating every non-zero as
+  failure is what turns a routine rebase into a page to the user.
+- Two conditions would otherwise hang until the timeout, so `pr-wait` reports them the moment it
+  sees them: **merge conflicts** (`mergeStatus == "conflicts"` produces no rejected policy, so the
+  PR simply never completes) and a PR **parked behind a human-gated policy** — minimum reviewers,
+  required reviewers, or comment resolution — with every automated policy already green. Neither
+  improves by waiting.
+- A PR with every blocking policy approved but **no auto-complete set** will sit forever; `pr-wait`
+  calls that out rather than timing out on it.
 
 ## Safety
 

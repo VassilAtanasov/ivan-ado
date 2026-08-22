@@ -46,7 +46,7 @@ a time:
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, `azure-pipelines.yml`, the **build validation branch policy** on `main`, doc templates, permission allowlist, board-shape detection, and the `## Ivan project config` section in CLAUDE.md. Idempotent, and it proves the enforcement fires before handing off. |
 | `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list: ideation → feature decomposition → architecture, seeded by what's already on the board. Creates the Feature work items with stub descriptions, ensures the phase's area path, and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
 | `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item's description as Markdown; mirrors the criteria into REQUIREMENTS.md; then tags it `ready`. Open questions block the tag instead of becoming guesses. |
-| `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge → terminal state. |
+| `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge (self-healing: rebases on conflict, fixes red builds, waits out slow ones) → terminal state. |
 | `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends and points you at what still needs `/kickoff` or the next Epic. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work items tagged `follow-up` (never `ready`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
 
@@ -66,7 +66,13 @@ isolates a fixed network port two concurrently-running app instances would both 
 3. **Fresh-context subagents** — `code-reviewer` (read-only, adversarial, no memory of writing the code) and `qa-verifier` (exercises the real running app per acceptance criterion).
 4. **Azure Pipelines + a build validation branch policy** — the same gate re-runs on every PR, and
    the policy makes merging on red impossible server-side rather than a rule Ivan has to obey.
-5. **Coding standards, machine-enforced first** — `/adopt` installs the stack's linter/compiler
+5. **Merges that heal themselves** — the PR is the enforcement point (Azure Repos ignores `pr:`
+   triggers, so a branch policy is the only pre-merge check that exists), but it is not a place
+   Ivan waits for you. `pr-wait` classifies every outcome by exit code: a red build gets fixed on
+   the branch, a branch that fell behind `main` gets rebased and force-pushed, a slow build gets
+   waited out. Only a human-gated policy, an abandoned PR, or a conflict Ivan can't resolve with
+   confidence in both sides' intent reaches you.
+6. **Coding standards, machine-enforced first** — `/adopt` installs the stack's linter/compiler
    config (for .NET: `.editorconfig` + `Directory.Build.props`, so analyzer and style rules become
    build errors) and writes the judgement rules the tooling *can't* check into `docs/CONVENTIONS.md`,
    which the code-reviewer reads on every diff. Conventions ship for C#, Python and

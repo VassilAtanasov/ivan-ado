@@ -93,11 +93,31 @@ isolate.
    merge (see the board contract for why).
 
    Then wait: `ado_cli.py pr-wait <pr> --repo <repo>`. It blocks, printing policy status as it
-   changes, and exits non-zero if a blocking policy fails, the PR is abandoned, or it times out.
-   With auto-complete set, **the server merges the PR itself the moment every blocking policy
-   passes** — you do not merge. On a failed policy: fix on the branch, push, and wait again. Never
-   merge red, and **never** pass `--bypass-policy` — bypassing the build validation policy is the
-   one action that would silently defeat the entire quality gate.
+   changes. With auto-complete set, **the server merges the PR itself the moment every blocking
+   policy passes** — you do not merge. Never merge red, and **never** pass `--bypass-policy` —
+   bypassing the build validation policy is the one action that would silently defeat the entire
+   quality gate.
+
+   **Its exit code says what to do next.** Most outcomes are yours to fix; only two need the user,
+   so read the code rather than treating every non-zero as a dead end:
+
+   | Exit | Meaning | Your move |
+   |---|---|---|
+   | 0 | Merged | Go to step 8. |
+   | 2 | A blocking build policy rejected | Read the failing run (`az pipelines runs show`/`runs artifact`, or the PR's build link), fix on the branch, `./gate.ps1`, push, wait again. Counts as a cycle. |
+   | 3 | Merge conflicts with `main` | Rebase (below), then wait again. **Does not** count as a cycle — landing behind another feature is routine, not a failure. |
+   | 4 | Needs a human | Escalate now: comment the reason on the work item, push notification, `ExitWorktree` with `action: "keep"`, stop. Waiting cannot fix it. |
+   | 5 | PR abandoned | Escalate the same way — someone intervened deliberately. |
+   | 6 | Timed out, still in progress | Not a failed build. Wait again (`pr-wait` is idempotent). After the **second** timeout on one PR, escalate as a stuck pipeline. |
+
+   **Rebasing on exit 3** — from inside the worktree, on the feature branch:
+   `git fetch origin && git rebase origin/main`. If the rebase applies cleanly, re-run
+   `./gate.ps1` (the merged code is new code — it has never been tested in this combination), then
+   `git push --force-with-lease`, which re-queues the build policy, and `pr-wait` again. If the
+   rebase stops on a conflict you cannot resolve with full confidence in both sides' intent,
+   `git rebase --abort` and escalate as exit 4 — a guessed conflict resolution is exactly the kind
+   of silent damage this pipeline exists to prevent. Never resolve a conflict by taking one side
+   wholesale just to make the rebase finish.
 8. **Close out** — the merge does not close the work item. Set the terminal state from the config
    explicitly: `ado_cli.py update <id> --state <terminal> --apply`. This is what keeps the backlog
    query honest — an item left in the in-progress state would be re-picked by the next
@@ -118,7 +138,12 @@ isolate.
 
 ## Circuit breaker
 
-Count gate/review/verify cycles. If a step fails on the 3rd attempt: comment your best diagnosis
+Count gate/review/verify cycles, and `pr-wait` exit 2 (a red build) alongside them — they are all
+"Ivan produced code that didn't hold up." **Do not count what isn't a quality failure:** a rebase
+after exit 3, or a re-wait after exit 6, is the pipeline working as designed and must not spend a
+strike. Exits 4 and 5 skip the counter entirely and escalate on the spot.
+
+If a step fails on the 3rd attempt: comment your best diagnosis
 on the work item (naming the worktree path so a human can pick the work up from exactly where it
 stands), send push notification ("<phase>: stuck on #<id> — needs human input"), set the state back
 to its initial value, `ExitWorktree` with `action: "keep"` (leave the worktree and its pushed

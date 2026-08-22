@@ -39,6 +39,22 @@ COMMENTS_API_VERSION = "7.1-preview.4"
 # Azure DevOps' fixed AAD application id, used to mint a bearer token via `az`.
 ADO_RESOURCE_ID = "499b84ac-1321-427f-aa17-267ca6975798"
 MAX_IDS_PER_BATCH = 200
+# `pr-wait` exit codes. The caller (/implement step 7) branches on these to decide
+# what it can fix itself and what genuinely needs a human, so every outcome gets
+# its own code instead of one undifferentiated failure.
+PR_WAIT_MERGED = 0
+PR_WAIT_ERROR = 1            # unexpected — treat as a real failure
+PR_WAIT_POLICY_FAILED = 2    # a blocking machine policy (the build) rejected: fixable on the branch
+PR_WAIT_CONFLICTS = 3        # the source branch no longer merges cleanly: rebase and re-push
+PR_WAIT_NEEDS_HUMAN = 4      # only human-gated policies remain, or nothing will complete the PR
+PR_WAIT_ABANDONED = 5        # someone abandoned the PR
+PR_WAIT_TIMEOUT = 6          # still progressing at the deadline — not a failed cycle
+# Policy types no amount of Ivan retrying can satisfy — they need a person.
+HUMAN_GATED_POLICIES = {
+    "Minimum number of reviewers",
+    "Required reviewers",
+    "Comment requirements",
+}
 DESCRIPTION_FIELD = "System.Description"
 SUMMARY_FIELDS = [
     "System.Id",
@@ -828,8 +844,31 @@ def pr_policies(pr_id: int) -> list[dict[str, Any]]:
     return data.get("value", [])
 
 
+def policy_name(policy: dict[str, Any]) -> str:
+    return (
+        policy.get("configuration", {})
+        .get("type", {})
+        .get("displayName", "policy")
+    )
+
+
+def blocking(policies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [p for p in policies if p.get("configuration", {}).get("isBlocking")]
+
+
+def fail(code: int, message: str) -> None:
+    """Exit with a classified code. SystemExit(str) would always be 1."""
+    print(message, file=sys.stderr)
+    sys.exit(code)
+
+
 def cmd_pr_wait(args: argparse.Namespace) -> None:
-    """The blocking wait `gh pr checks --watch` gave us; Azure DevOps has no equivalent."""
+    """The blocking wait `gh pr checks --watch` gave us; Azure DevOps has no equivalent.
+
+    Exits with a PR_WAIT_* code saying *why* it stopped, because the caller's next
+    move is completely different for a red build, a conflicted branch, and a PR
+    parked behind a human approver.
+    """
     deadline = time.time() + args.timeout
     interval = args.interval
     last_summary = ""
@@ -839,34 +878,62 @@ def cmd_pr_wait(args: argparse.Namespace) -> None:
         merge_status = pr.get("mergeStatus")
         policies = pr_policies(args.pr)
         summary = ", ".join(
-            f"{p.get('configuration', {}).get('type', {}).get('displayName', 'policy')}"
-            f"={p.get('status')}"
-            for p in policies
+            f"{policy_name(p)}={p.get('status')}" for p in policies
         ) or "(no policies configured)"
         if summary != last_summary:
             print(f"[{time.strftime('%H:%M:%S')}] status={status} merge={merge_status} {summary}")
             last_summary = summary
+
         if status == "completed":
-            print(f"PR !{args.pr} completed. Merge commit: {pr.get('lastMergeCommit', {}).get('commitId')}")
+            print(
+                f"PR !{args.pr} completed. "
+                f"Merge commit: {pr.get('lastMergeCommit', {}).get('commitId')}"
+            )
             return
         if status == "abandoned":
-            raise SystemExit(f"PR !{args.pr} was abandoned.")
-        rejected = [
-            p
-            for p in policies
-            if p.get("status") in ("rejected", "broken")
-            and p.get("configuration", {}).get("isBlocking")
-        ]
-        if rejected:
-            names = ", ".join(
-                p.get("configuration", {}).get("type", {}).get("displayName", "policy")
-                for p in rejected
+            fail(PR_WAIT_ABANDONED, f"PR !{args.pr} was abandoned.")
+
+        # Conflicts first: a conflicted PR shows no rejected policy and will never
+        # auto-complete, so without this check it silently burns the whole timeout.
+        if merge_status == "conflicts":
+            fail(
+                PR_WAIT_CONFLICTS,
+                f"PR !{args.pr} has merge conflicts with {pr.get('targetRefName', 'the target')}. "
+                f"Rebase the source branch onto the target, re-run the gate, and force-push.",
             )
-            raise SystemExit(f"Blocking policy failed on PR !{args.pr}: {names}")
+        if merge_status == "failure":
+            fail(PR_WAIT_ERROR, f"PR !{args.pr} failed to produce a merge commit (server-side).")
+
+        rejected = [p for p in blocking(policies) if p.get("status") in ("rejected", "broken")]
+        if rejected:
+            names = ", ".join(policy_name(p) for p in rejected)
+            human = [p for p in rejected if policy_name(p) in HUMAN_GATED_POLICIES]
+            code = PR_WAIT_NEEDS_HUMAN if human else PR_WAIT_POLICY_FAILED
+            fail(code, f"Blocking policy failed on PR !{args.pr}: {names}")
+
+        # Everything a machine can satisfy is green, and the PR still isn't merging.
+        # Waiting longer cannot change that, so say so now instead of at the deadline.
+        outstanding = [p for p in blocking(policies) if p.get("status") != "approved"]
+        if outstanding and all(policy_name(p) in HUMAN_GATED_POLICIES for p in outstanding):
+            names = ", ".join(policy_name(p) for p in outstanding)
+            fail(
+                PR_WAIT_NEEDS_HUMAN,
+                f"PR !{args.pr} is green on every automated policy and is waiting on a person: "
+                f"{names}. Ivan cannot satisfy this — a human must act on the PR.",
+            )
+        if not outstanding and not pr.get("autoCompleteSetBy"):
+            fail(
+                PR_WAIT_NEEDS_HUMAN,
+                f"PR !{args.pr} passes every blocking policy but has no auto-complete set, "
+                f"so nothing will merge it. Re-create it with --auto-complete.",
+            )
+
         if time.time() >= deadline:
-            raise SystemExit(
+            fail(
+                PR_WAIT_TIMEOUT,
                 f"Timed out after {args.timeout}s waiting on PR !{args.pr} "
-                f"(status={status}, {summary})."
+                f"(status={status}, merge={merge_status}, {summary}). Still in progress — "
+                f"this is not a failed build.",
             )
         time.sleep(interval)
         interval = min(interval * 1.5, args.max_interval)
@@ -959,7 +1026,15 @@ def build_parser() -> argparse.ArgumentParser:
     pr_link.add_argument("--repo", required=True)
     pr_link.add_argument("--apply", action="store_true")
 
-    pr_wait = subparsers.add_parser("pr-wait", help="Block until a PR completes or a policy fails")
+    pr_wait = subparsers.add_parser(
+        "pr-wait",
+        help="Block until a PR completes or stops making progress",
+        description=(
+            "Exit codes: 0 merged, 2 blocking build policy rejected (fix on the branch), "
+            "3 merge conflicts (rebase and force-push), 4 needs a human, 5 abandoned, "
+            "6 timed out while still in progress, 1 error."
+        ),
+    )
     pr_wait.add_argument("pr", type=int)
     pr_wait.add_argument("--repo", required=True)
     pr_wait.add_argument("--timeout", type=int, default=3600)
