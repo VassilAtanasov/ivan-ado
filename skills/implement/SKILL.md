@@ -114,9 +114,7 @@ isolate.
    only this now-redundant local worktree copy is being discarded. If `ExitWorktree` reports
    anything you didn't expect (uncommitted files, a second branch), stop and look before
    discarding. This returns the session to the original directory — `git checkout main` (if it
-   isn't already) and `git pull` there, so the squash-merge commit is present locally. Then run the
-   `learning-coach` skill for this work item (non-blocking artifact: it writes a learning note from
-   the merged diff and is never allowed to gate or reopen the feature).
+   isn't already) and `git pull` there, so the squash-merge commit is present locally.
 
 ## Circuit breaker
 

@@ -46,9 +46,8 @@ a time:
 | `/adopt` | Wires Ivan into the current repo: quality gate (`gate.ps1`), enforcement hooks, `azure-pipelines.yml`, the **build validation branch policy** on `main`, doc templates, permission allowlist, board-shape detection, and the `## Ivan project config` section in CLAUDE.md. Idempotent, and it proves the enforcement fires before handing off. |
 | `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list: ideation → feature decomposition → architecture, seeded by what's already on the board. Creates the Feature work items with stub descriptions, ensures the phase's area path, and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
 | `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item's description as Markdown; mirrors the criteria into REQUIREMENTS.md; then tags it `ready`. Open questions block the tag instead of becoming guesses. |
-| `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge → terminal state → `learning-coach` note. |
+| `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge → terminal state. |
 | `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends and points you at what still needs `/kickoff` or the next Epic. |
-| `/learning-coach` | Non-blocking artifact: writes a dated note to `docs/LEARNING-LOG.md` explaining the language concepts a shipped feature actually introduced (stack-aware). Auto-runs at `/implement` close-out; never gates or edits code. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work items tagged `follow-up` (never `ready`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
 
 ## Running several sessions at once
@@ -133,8 +132,7 @@ are refreshed by re-running
 
 ```
 .claude-plugin/plugin.json   plugin manifest (+ marketplace.json — this repo is its own marketplace)
-skills/                      adopt, discover, kickoff, implement, autopilot, retrospective,
-                             learning-coach
+skills/                      adopt, discover, kickoff, implement, autopilot, retrospective
 agents/                      code-reviewer, qa-verifier
 scripts/                     ado_cli.py (Azure DevOps REST helper — work items, comments, PRs,
                              the CI wait; every text-carrying write goes through it)

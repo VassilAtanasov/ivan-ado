@@ -152,10 +152,8 @@ These hold in every stack:
 
 ## Continuous improvement (autonomous, non-blocking)
 
-These run without a human gate and never block or reopen a feature:
+This runs without a human gate and never blocks or reopens a feature:
 
-- After each feature merges, the `learning-coach` skill appends a note to `docs/LEARNING-LOG.md`
-  about the language concepts that feature introduced (per the Stack below). Artifact only.
 - When an `/autopilot` run ends (backlog drained or circuit breaker), the `retrospective` skill
   records outcome and lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work
   items tagged `follow-up` (never plain `ivan` features — autopilot won't auto-build them), and
