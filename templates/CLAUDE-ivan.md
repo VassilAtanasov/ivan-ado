@@ -98,11 +98,12 @@ while `/kickoff` details the next feature, or two `/implement` sessions each on 
   container, a queue) that two running app instances would both bind to. If two `/implement`
   sessions may run at once, the `qa-verifier` picks a free port per run rather than assuming the
   fixed one in ARCHITECTURE.md — see that agent's instructions.
-- **`/discover` and `/kickoff` commit docs straight to `main`, not on a branch**, so two such
-  sessions editing the *same* project's docs at once can race on the push. `git pull --rebase`
-  immediately before every such commit, and retry once on a non-fast-forward push rejection — these
-  are small sequential doc edits, so a clean rebase is the expected outcome. Stop and surface a real
-  conflict rather than force-pushing.
+- **`/discover` and `/kickoff` land docs through a PR like everything else**, on a short-lived
+  `docs/<slug>` branch with `--squash --delete-source-branch --auto-complete`. `main` is protected
+  by the branch policies `/adopt` created, so a direct push is rejected with `TF402455` and
+  docs-only changes are not exempt. Two sessions editing the *same* project's docs therefore cannot
+  race on a push — but they can conflict at merge, so rebase on the updated `main` and surface a
+  real conflict rather than force-pushing.
 
 ## Definition of Done (per feature work item)
 
@@ -151,10 +152,8 @@ These hold in every stack:
 
 ## Continuous improvement (autonomous, non-blocking)
 
-These run without a human gate and never block or reopen a feature:
+This runs without a human gate and never blocks or reopens a feature:
 
-- After each feature merges, the `learning-coach` skill appends a note to `docs/LEARNING-LOG.md`
-  about the language concepts that feature introduced (per the Stack below). Artifact only.
 - When an `/autopilot` run ends (backlog drained or circuit breaker), the `retrospective` skill
   records outcome and lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work
   items tagged `follow-up` (never plain `ivan` features — autopilot won't auto-build them), and

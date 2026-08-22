@@ -149,9 +149,11 @@ the reasoning. If you reach Exit and `git status` still shows uncommitted doc ch
 in this run — commit them before reporting done.
 
 Record the phase in the `## Ivan project config` registry table in CLAUDE.md (phase title, Epic id,
-area path, docs folder), set it as the active project, and commit the docs. This commits straight
-to `main` — `git pull --rebase` first and retry once on a rejected push (see **Concurrency** in
-CLAUDE.md; a second `/discover` or `/kickoff` session on this phase's docs may have pushed first).
+area path, docs folder), set it as the active project, and **land the docs** — branch, commit, push,
+and open an auto-completing PR per **Landing a change on `main`** in `references/azure-devops.md`.
+`main` is protected by the branch policies `/adopt` created, so a direct push is rejected with
+`TF402455`; docs-only changes are not exempt. Report the PR URL rather than implying the docs are
+already on `main`.
 
 Then tell the user: review the board and the two docs, then run `/kickoff <feature>` once per
 feature — listing them in dependency order — to settle each description and mark it ready. After

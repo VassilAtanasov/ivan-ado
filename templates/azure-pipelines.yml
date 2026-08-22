@@ -7,7 +7,7 @@ trigger:
       - main
   paths:
     # Ivan commits docs/CLAUDE.md updates straight to main outside a PR
-    # (learning-coach, retrospective, discover, kickoff registry writes) —
+    # (retrospective, discover, kickoff registry writes) —
     # skip re-running the gate for those doc-only pushes.
     exclude:
       - docs/*

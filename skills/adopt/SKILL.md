@@ -134,7 +134,15 @@ Warnings are errors in every stack — the gate must not go green on a warning.
 
 ## 4. Pipeline and branch policy (do not skip — this is what makes "never merge red" real)
 
-Commit and push `azure-pipelines.yml` first, then:
+**Commit and push everything sections 1–3b produced — not just `azure-pipelines.yml`.** The gate
+script, the hooks, the lint config, the templates and `azure-pipelines.yml` all go to `main` in one
+push, and **this is the last direct push to `main` this project will ever get**: step 2 below
+creates a blocking policy that rejects every later one with `TF402455`. Ordering it the other way
+round makes `/adopt` create the policy that rejects its own push, which is a real failure and not a
+retryable one. Everything sections 5–7 add lands through a PR instead — see **Landing a change on
+`main`** in `references/azure-devops.md`.
+
+Then:
 
 1. Create the pipeline if it doesn't exist (check `az pipelines list --project <project> -o json`
    by name first):
@@ -205,17 +213,21 @@ Commit and push `azure-pipelines.yml` first, then:
    linter owns (a `var` where the .editorconfig forbids it and an unused private field for .NET; an
    `any` for TypeScript; an unannotated function for Python), run `./gate.ps1` → must go **red** on
    that rule. Revert. Skip only if the stack has no application code yet, and say so.
-4. Commit and push to `main`, then confirm the pipeline ran green:
+4. Confirm the pipeline ran green on the section-4 push:
    `az pipelines runs list --project <project> --branch main --top 1 -o json` — repeat until
    `status` is `completed`, then check `result` is `succeeded`. There is no blocking `run watch`
    in Azure DevOps; poll with a few seconds between calls rather than in a tight loop.
-5. **Prove the PR gate is real**: open a throwaway branch with a trivial change, create a PR
-   (`ado_cli.py pr-create --repo <repo> --source <branch> --title "policy check"`), and confirm the
-   build validation policy appears and runs (`ado_cli.py pr-wait <pr> --repo <repo>` prints the
-   policy status lines). Abandon the PR afterwards
-   (`az repos pr update --id <pr> --status abandoned`) and delete the branch. If no policy shows
-   up, step 4.2 did not take effect — fix it before handing off, because every later merge depends
-   on it.
+5. **Land whatever sections 5–7 changed** (docs, CLAUDE.md, any lint fix from step 3) per
+   **Landing a change on `main`** in `references/azure-devops.md`: branch, commit, push,
+   `pr-create --squash --delete-source-branch --auto-complete`. Do not push to `main` — step 4.2
+   made that impossible, and a skill that tries it and then deletes the policy to get past it has
+   destroyed the thing it was adopting. **Nothing you wrote may be left uncommitted at hand-off.**
+6. **Prove the PR gate is real** — the PR from step 5 is the proof, so use it rather than opening a
+   throwaway: `ado_cli.py pr-wait <pr> --repo <repo>` must print the build validation policy's
+   status lines. If no policy shows up, step 4.2 did not take effect — fix it before handing off,
+   because every later merge depends on it. Only if sections 5–7 changed nothing, open a throwaway
+   branch and PR for the check instead, and abandon it afterwards
+   (`az repos pr update --id <pr> --status abandoned`).
 
 ## 8. Hand off
 
