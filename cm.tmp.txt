@@ -1,0 +1,33 @@
+Land every phase's work through a PR, and never leave it uncommitted
+
+Three related bugs, all of which lose work:
+
+1. No skill could push to main at all. /adopt section 4.2 creates a
+   blocking build-validation policy on main, after which every direct
+   push is rejected with TF402455 - but /adopt section 7.4,
+   /discover, /kickoff, /learning-coach and /retrospective all still
+   said to push there. /adopt was creating the policy that rejected
+   its own push. All five now branch, commit and open an
+   auto-completing squash PR, contracted in a new "Landing a change
+   on main" section of references/azure-devops.md.
+
+2. /adopt section 4 committed only azure-pipelines.yml, leaving the
+   gate script, hooks, lint config and templates in the working tree
+   with no later step that lands them. It now pushes all of sections
+   1-3b in one go, explicitly as the last direct push the project
+   gets, and section 7 lands sections 5-7 by PR.
+
+3. /retrospective wrote its log and then ran the safe-return-to-main
+   step, which refuses to switch with a dirty tree - so the log
+   either blocked the cleanup or was stranded. Landing now happens
+   first.
+
+The reference section states the general rule the skills were only
+implying: every phase of the SDLC ends by landing its work, and
+uncommitted changes at a skill's Exit are a bug in the run.
+
+Version bumped to 2.0.0-alpha.2 so installed caches pick this up -
+alpha.1's cache never received the last two commits, which is how a
+/discover run came to have no commit-as-you-go instruction at all.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

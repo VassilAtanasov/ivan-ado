@@ -174,6 +174,47 @@ not close the item:
    on Agile, **not** Closed. Ivan therefore does **not** use it: `/implement` sets the terminal
    state explicitly after the merge, so the backlog query can never re-pick shipped work.
 
+## Landing a change on `main`
+
+**Every phase of the SDLC ends by landing its work — never by leaving it in the working tree.** A
+skill that writes a file and stops has produced nothing durable: `/discover`'s REQUIREMENTS.md is
+the one artifact that cannot be reconstructed from the board, because the board holds titles and
+stubs while the docs hold the reasoning. The rule is the same for every skill that writes to the
+repo: **commit at the end of each phase, and land it before reporting done.** If you reach a
+skill's Exit and `git status` still shows uncommitted changes you made, that is a bug in the run.
+
+**`main` is protected, so "push to `main`" does not work.** `/adopt` §4.2 creates a *blocking*
+build-validation policy and a squash-only merge-strategy policy on `main`. Once they exist, a direct
+push is rejected by the server:
+
+```
+! [remote rejected] main -> main (TF402455: Pushes to this branch are not permitted;
+  you must use a pull request to update this branch.)
+```
+
+This is not a failure to retry, and `git pull --rebase` does not help — the branch simply cannot be
+written to directly. **Docs-only changes are not exempt.** The sequence, for every skill:
+
+1. `git switch -c <docs|chore>/<short-slug>` and commit there. Never commit a message with `-m`;
+   write it to a file and use `git commit -F <file>`, and write that file **without a BOM**.
+2. `git push -u origin <branch>`.
+3. `ado_cli.py pr-create --repo <repo> --source <branch> --title "..." --description-file <file>
+   --squash --delete-source-branch --auto-complete --apply`, adding `--work-item <id>` when the
+   change belongs to one. **`--squash` is not optional** — the merge-strategy policy rejects a PR
+   without it before the build even reports.
+4. Report the PR URL. Auto-complete merges it once the blocking policies pass, so a skill does not
+   have to block on `pr-wait` for a docs change — but it must **say** the change is landing via a
+   PR rather than implying it is already on `main`.
+
+**The one exception is `/adopt` before it creates the policies.** Adoption's own scaffolding commit
+(gate, hooks, pipeline, templates, CLAUDE.md config) has to reach `main` for the pipeline to exist
+at all, and at that moment no policy is protecting the branch — so it pushes directly, and it must
+do so **before** §4.2 runs. Ordering it the other way makes `/adopt` create the policy that rejects
+its own push.
+
+If a push to `main` is rejected in any other skill, do not weaken or delete the policy to get past
+it. Open the PR.
+
 ## CI
 
 - **`pr:` triggers in YAML are ignored for Azure Repos.** PR validation runs only if a **build

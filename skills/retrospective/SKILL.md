@@ -69,9 +69,12 @@ Append a dated entry to `docs/RETROSPECTIVE-LOG.md` (create it if absent, newest
 - Process adjustments applied: <doc/standard changes, or "none">
 ```
 
-Commit and push this (and any CLAUDE.md standards change) directly to `main` — the Stop-hook gate
-still runs locally, and the template `azure-pipelines.yml` excludes `docs/*` and `CLAUDE.md` from
-the `main` trigger so it doesn't queue a redundant pipeline run.
+Land this (and any CLAUDE.md standards change) per **Landing a change on `main`** in
+`references/azure-devops.md` — branch, commit, push, auto-completing PR. `main` is protected by
+`/adopt`'s branch policies, so a direct push is rejected with `TF402455` even for a docs-only
+change. Do this **before** the safe return to main below: section 5 refuses to switch branches with
+a dirty tree, so an uncommitted retrospective log would either block the cleanup or be left behind
+in the working tree of a branch nobody returns to.
 
 ## 5. Safe return to main (never destructive)
 

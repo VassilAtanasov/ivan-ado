@@ -37,8 +37,10 @@ Scope: the feature that just merged when invoked at `/implement` close-out (diff
    Try next: <one small exercise>
    ```
 
-   Commit and push it directly to `main` (the template `ci.yml` ignores `docs/**` on push, so this
-   doesn't trigger a redundant CI run for the PR that already went green).
+   Land it per **Landing a change on `main`** in `references/azure-devops.md` — branch, commit,
+   push, auto-completing PR. `main` is protected by `/adopt`'s branch policies, so a direct push is
+   rejected with `TF402455` even for a docs-only change. Do not block on the merge; this skill is
+   fire-and-forget and auto-complete finishes it.
 6. Send a push notification: "<project>: learning note ready for #<N> — <concepts>".
 
 ## Constraints

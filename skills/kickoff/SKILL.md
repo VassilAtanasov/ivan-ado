@@ -94,10 +94,13 @@ Rules:
 
 Then update this feature's FR-N entry in `docs/<project-slug>/REQUIREMENTS.md` with the same
 acceptance conditions (the docs are the product truth; the work item is its board face — they must
-not drift), add anything the interview surfaced to §5 or §6, and commit the docs. This commits
-straight to `main` — `git pull --rebase` first and retry once on a rejected push (see
-**Concurrency** in CLAUDE.md; a simultaneous `/kickoff` session detailing another feature in this
-same phase may have pushed a docs change first).
+not drift), add anything the interview surfaced to §5 or §6, and **land the docs** — branch, commit,
+push, and open an auto-completing PR per **Landing a change on `main`** in
+`references/azure-devops.md`. `main` is protected, so a direct push is rejected with `TF402455`.
+Do not report the kickoff done while your doc edits are still only in the working tree: the work
+item carries the acceptance criteria, but the docs carry the reasoning, and only one of the two is
+reconstructible. If a simultaneous `/kickoff` session on this same phase already landed a docs
+change, rebase your branch on the updated `main` rather than forcing.
 
 ## 3. Gate — never mark an unsettled feature ready
 
