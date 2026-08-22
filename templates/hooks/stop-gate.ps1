@@ -1,7 +1,9 @@
 # Stop hook: Ivan may not end a working turn while the quality gate fails.
 # - Skips when this stop was already triggered by a previous Stop-hook block (stop_hook_active),
 #   letting Ivan report an unfixable failure instead of looping forever.
-# - Skips chat-only turns (no changes under server/ or client/).
+# - Skips turns that changed nothing but prose (docs, markdown, .claude/ config). The filter is
+#   stack-agnostic on purpose: an exclude list stays correct when /adopt points the gate at a
+#   layout other than server/ + client/, where an include list would silently stop firing.
 # - Skips when .gate-stamp matches the current working tree — gate.ps1 already ran green on this
 #   exact code, so re-running it would only repeat a known-good result.
 # - Exit 2 + stderr feeds the gate failure back to Ivan, forcing him to keep fixing.
@@ -14,8 +16,13 @@ try {
     if ($payload.stop_hook_active) { exit 0 }
 } catch { }
 
-$changes = git -C $repoRoot status --porcelain 2>$null
-$sourceChanged = $changes | Where-Object { $_ -match '^\s*\S+\s+"?(server|client)/' }
+$changes = @(git -C $repoRoot status --porcelain 2>$null)
+$sourceChanged = $changes | Where-Object {
+    $path = ($_ -replace '^..\s+', '')
+    $path = ($path -split ' -> ')[-1]          # renames report "old -> new"
+    $path = $path -replace '^"|"$', ''         # git quotes paths containing spaces
+    $path -notmatch '(?i)^(docs/|\.claude/)' -and $path -notmatch '(?i)\.md$'
+}
 if (-not $sourceChanged) { exit 0 }
 
 # Hash the exact working-tree content without touching the real index. Must match gate.ps1's copy.

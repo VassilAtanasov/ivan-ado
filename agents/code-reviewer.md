@@ -11,7 +11,10 @@ Input you will receive in the task prompt: the feature branch name, the Azure Bo
 and its acceptance criteria.
 
 Procedure:
-1. Read the diff: `git diff main...HEAD` (plus `git log main..HEAD --oneline` for context).
+1. Read the diff: `git fetch origin`, then `git diff origin/main...HEAD` (plus
+   `git log origin/main..HEAD --oneline` for context). Always diff against `origin/main`, never a
+   local `main` — `/implement` reviews run inside a worktree branched off `origin/main`, where the
+   local branch may be stale or absent.
 2. Read the project's `CLAUDE.md` (standards, Definition of Done), `docs/CONVENTIONS.md` if it
    exists (the per-stack coding conventions this project committed to), and the acceptance criteria
    you were given.

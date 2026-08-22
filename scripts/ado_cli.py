@@ -39,6 +39,51 @@ COMMENTS_API_VERSION = "7.1-preview.4"
 # Azure DevOps' fixed AAD application id, used to mint a bearer token via `az`.
 ADO_RESOURCE_ID = "499b84ac-1321-427f-aa17-267ca6975798"
 MAX_IDS_PER_BATCH = 200
+# `pr-wait` exit codes. The caller (/implement step 7) branches on these to decide
+# what it can fix itself and what genuinely needs a human, so every outcome gets
+# its own code instead of one undifferentiated failure.
+PR_WAIT_MERGED = 0
+PR_WAIT_ERROR = 1            # unexpected — treat as a real failure
+PR_WAIT_POLICY_FAILED = 2    # a blocking machine policy (the build) rejected: fixable on the branch
+PR_WAIT_CONFLICTS = 3        # the source branch no longer merges cleanly: rebase and re-push
+PR_WAIT_NEEDS_HUMAN = 4      # only human-gated policies remain, or nothing will complete the PR
+PR_WAIT_ABANDONED = 5        # someone abandoned the PR
+PR_WAIT_TIMEOUT = 6          # still progressing at the deadline — not a failed cycle
+# Policy types no amount of Ivan retrying can satisfy — they need a person.
+HUMAN_GATED_POLICIES = {
+    "Minimum number of reviewers",
+    "Required reviewers",
+    "Comment requirements",
+}
+POLICY_CHECK_HUMAN_GATED = 4   # `policy-check`: a blocking policy on the branch needs a person
+BUILD_TRIAGE_QUALITY = 0       # the build failed on our code — fix it
+BUILD_TRIAGE_INFRA = 7         # the build failed on the infrastructure — re-queue it
+# Failure text that means the agent/network/feed let go, not that the code is wrong.
+# Matched case-insensitively against a failed timeline record's issues.
+INFRA_FAILURE_SIGNS = (
+    "the agent request was aborted",
+    "lost communication with the server",
+    "the agent did not respond",
+    "no hosted parallelism has been purchased",
+    "we stopped hearing from agent",
+    "unable to load the service index for source",
+    "retrying 'findpackagesbyidasync",
+    "the http request to the remote webproxy",
+    "connection reset by peer",
+    "econnreset",
+    "etimedout",
+    "socket timeout",
+    "server error returned: 502",
+    "server error returned: 503",
+    "service unavailable",
+    "bad gateway",
+    "no space left on device",
+    "there is not enough space on the disk",
+    "the operation was canceled",
+    "timeout waiting for the pipeline agent",
+    "could not resolve host",
+    "temporary failure in name resolution",
+)
 DESCRIPTION_FIELD = "System.Description"
 SUMMARY_FIELDS = [
     "System.Id",
@@ -784,7 +829,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
 
 
 def cmd_pr_link(args: argparse.Namespace) -> None:
-    """Attach a PR to a work item as an ArtifactLink (what `Closes #N` did on GitHub)."""
+    """Attach a PR to a work item as an ArtifactLink — Azure Repos has no `Closes #N` keyword."""
     artifact = (
         f"vstfs:///Git/PullRequestId/{project_id()}%2F{repo_id(args.repo)}%2F{args.pr}"
     )
@@ -828,8 +873,31 @@ def pr_policies(pr_id: int) -> list[dict[str, Any]]:
     return data.get("value", [])
 
 
+def policy_name(policy: dict[str, Any]) -> str:
+    return (
+        policy.get("configuration", {})
+        .get("type", {})
+        .get("displayName", "policy")
+    )
+
+
+def blocking(policies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [p for p in policies if p.get("configuration", {}).get("isBlocking")]
+
+
+def fail(code: int, message: str) -> None:
+    """Exit with a classified code. SystemExit(str) would always be 1."""
+    print(message, file=sys.stderr)
+    sys.exit(code)
+
+
 def cmd_pr_wait(args: argparse.Namespace) -> None:
-    """The blocking wait `gh pr checks --watch` gave us; Azure DevOps has no equivalent."""
+    """Block until the PR reaches a terminal outcome; Azure DevOps has no blocking checks-watch.
+
+    Exits with a PR_WAIT_* code saying *why* it stopped, because the caller's next
+    move is completely different for a red build, a conflicted branch, and a PR
+    parked behind a human approver.
+    """
     deadline = time.time() + args.timeout
     interval = args.interval
     last_summary = ""
@@ -839,37 +907,235 @@ def cmd_pr_wait(args: argparse.Namespace) -> None:
         merge_status = pr.get("mergeStatus")
         policies = pr_policies(args.pr)
         summary = ", ".join(
-            f"{p.get('configuration', {}).get('type', {}).get('displayName', 'policy')}"
-            f"={p.get('status')}"
-            for p in policies
+            f"{policy_name(p)}={p.get('status')}" for p in policies
         ) or "(no policies configured)"
         if summary != last_summary:
             print(f"[{time.strftime('%H:%M:%S')}] status={status} merge={merge_status} {summary}")
             last_summary = summary
+
         if status == "completed":
-            print(f"PR !{args.pr} completed. Merge commit: {pr.get('lastMergeCommit', {}).get('commitId')}")
+            print(
+                f"PR !{args.pr} completed. "
+                f"Merge commit: {pr.get('lastMergeCommit', {}).get('commitId')}"
+            )
             return
         if status == "abandoned":
-            raise SystemExit(f"PR !{args.pr} was abandoned.")
-        rejected = [
-            p
-            for p in policies
-            if p.get("status") in ("rejected", "broken")
-            and p.get("configuration", {}).get("isBlocking")
-        ]
-        if rejected:
-            names = ", ".join(
-                p.get("configuration", {}).get("type", {}).get("displayName", "policy")
-                for p in rejected
+            fail(PR_WAIT_ABANDONED, f"PR !{args.pr} was abandoned.")
+
+        # Conflicts first: a conflicted PR shows no rejected policy and will never
+        # auto-complete, so without this check it silently burns the whole timeout.
+        if merge_status == "conflicts":
+            fail(
+                PR_WAIT_CONFLICTS,
+                f"PR !{args.pr} has merge conflicts with {pr.get('targetRefName', 'the target')}. "
+                f"Rebase the source branch onto the target, re-run the gate, and force-push.",
             )
-            raise SystemExit(f"Blocking policy failed on PR !{args.pr}: {names}")
+        if merge_status == "failure":
+            fail(PR_WAIT_ERROR, f"PR !{args.pr} failed to produce a merge commit (server-side).")
+
+        rejected = [p for p in blocking(policies) if p.get("status") in ("rejected", "broken")]
+        if rejected:
+            names = ", ".join(policy_name(p) for p in rejected)
+            human = [p for p in rejected if policy_name(p) in HUMAN_GATED_POLICIES]
+            code = PR_WAIT_NEEDS_HUMAN if human else PR_WAIT_POLICY_FAILED
+            fail(code, f"Blocking policy failed on PR !{args.pr}: {names}")
+
+        # Everything a machine can satisfy is green, and the PR still isn't merging.
+        # Waiting longer cannot change that, so say so now instead of at the deadline.
+        outstanding = [p for p in blocking(policies) if p.get("status") != "approved"]
+        if outstanding and all(policy_name(p) in HUMAN_GATED_POLICIES for p in outstanding):
+            names = ", ".join(policy_name(p) for p in outstanding)
+            fail(
+                PR_WAIT_NEEDS_HUMAN,
+                f"PR !{args.pr} is green on every automated policy and is waiting on a person: "
+                f"{names}. Ivan cannot satisfy this — a human must act on the PR.",
+            )
+        if not outstanding and not pr.get("autoCompleteSetBy"):
+            fail(
+                PR_WAIT_NEEDS_HUMAN,
+                f"PR !{args.pr} passes every blocking policy but has no auto-complete set, "
+                f"so nothing will merge it. Re-create it with --auto-complete.",
+            )
+
         if time.time() >= deadline:
-            raise SystemExit(
+            fail(
+                PR_WAIT_TIMEOUT,
                 f"Timed out after {args.timeout}s waiting on PR !{args.pr} "
-                f"(status={status}, {summary})."
+                f"(status={status}, merge={merge_status}, {summary}). Still in progress — "
+                f"this is not a failed build.",
             )
         time.sleep(interval)
         interval = min(interval * 1.5, args.max_interval)
+
+
+def branch_policies(repo: str, branch: str) -> list[dict[str, Any]]:
+    """Policy configurations that apply to `branch` in `repo` (exact-match scopes)."""
+    data = request_json("GET", project_path("_apis/policy/configurations"))
+    wanted_ref = ref(branch)
+    rid = repo_id(repo)
+    applies = []
+    for cfg in data.get("value", []):
+        if not cfg.get("isEnabled"):
+            continue
+        for scope in cfg.get("settings", {}).get("scope", []):
+            same_repo = scope.get("repositoryId") in (None, rid)
+            match_kind = scope.get("matchKind", "Exact").lower()
+            scope_ref = scope.get("refName") or ""
+            hit = (
+                scope_ref == wanted_ref
+                if match_kind == "exact"
+                else wanted_ref.startswith(scope_ref)
+            )
+            if same_repo and hit:
+                applies.append(cfg)
+                break
+    return applies
+
+
+def cmd_policy_check(args: argparse.Namespace) -> None:
+    """Is this branch's policy set compatible with unattended auto-complete?
+
+    /adopt runs this at setup time so a policy that can only be satisfied by a
+    person is found while the user is sitting there, not at 3am mid-autopilot.
+    """
+    policies = branch_policies(args.repo, args.branch)
+    rows = []
+    for cfg in policies:
+        name = cfg.get("type", {}).get("displayName", "policy")
+        rows.append(
+            {
+                "policy": name,
+                "blocking": bool(cfg.get("isBlocking")),
+                "humanGated": name in HUMAN_GATED_POLICIES,
+                "id": cfg.get("id"),
+            }
+        )
+    blockers = [r for r in rows if r["blocking"] and r["humanGated"]]
+    has_build = any(r["policy"] == "Build" and r["blocking"] for r in rows)
+    result = {
+        "branch": args.branch,
+        "repository": args.repo,
+        "policies": rows,
+        "buildValidation": has_build,
+        "autoMergeCompatible": not blockers,
+        "humanGatedBlockers": [r["policy"] for r in blockers],
+    }
+    if args.json:
+        print_json(result)
+    else:
+        if not rows:
+            print(f"No enabled policies apply to {args.branch}.")
+        for r in rows:
+            flags = []
+            if r["blocking"]:
+                flags.append("blocking")
+            if r["humanGated"]:
+                flags.append("HUMAN-GATED")
+            print(f"{r['policy']:<32} {', '.join(flags) or 'advisory'}")
+        if not has_build:
+            print(
+                "\nWARNING: no blocking Build policy on this branch — nothing validates a PR, "
+                "and auto-complete would merge unvalidated code."
+            )
+    if blockers:
+        fail(
+            POLICY_CHECK_HUMAN_GATED,
+            f"\n{args.branch} has blocking policies only a person can satisfy: "
+            f"{', '.join(r['policy'] for r in blockers)}. Ivan's PRs will sit unmerged until "
+            f"someone acts on them. Either scope the policy away from Ivan's branches or accept "
+            f"that every feature needs a manual approval.",
+        )
+
+
+def failing_build_evaluation(pr_id: int) -> tuple[int | None, str | None]:
+    """(build id, policy evaluation id) behind a rejected Build policy on this PR.
+
+    The evaluation id is what re-queues the build without touching the branch —
+    the right move when the build died on infrastructure rather than on our code.
+    """
+    for policy in pr_policies(pr_id):
+        if policy_name(policy) != "Build":
+            continue
+        if policy.get("status") not in ("rejected", "broken"):
+            continue
+        build = (policy.get("context") or {}).get("buildId")
+        if build:
+            return int(build), policy.get("evaluationId")
+    return None, None
+
+
+def build_timeline_issues(build_id: int) -> list[tuple[str, str]]:
+    timeline = request_json(
+        "GET",
+        project_path(f"_apis/build/builds/{build_id}/timeline"),
+    )
+    issues = []
+    for record in timeline.get("records", []):
+        if record.get("result") not in ("failed", "canceled"):
+            continue
+        for issue in record.get("issues") or []:
+            if issue.get("type") == "error":
+                issues.append((record.get("name", "?"), issue.get("message", "")))
+    return issues
+
+
+def cmd_build_triage(args: argparse.Namespace) -> None:
+    """Did the build fail on our code, or on the infrastructure?
+
+    A lost agent or a dead package feed is not a quality failure, and charging it
+    against the circuit breaker is what turns three flaky builds into a page.
+    """
+    build_id = args.build
+    evaluation_id = None
+    if build_id is None:
+        if args.pr is None:
+            fail(PR_WAIT_ERROR, "Pass a build id or --pr <id>.")
+        build_id, evaluation_id = failing_build_evaluation(args.pr)
+        if build_id is None:
+            fail(
+                PR_WAIT_ERROR,
+                f"No rejected Build policy with a build id on PR !{args.pr} — "
+                f"nothing to triage.",
+            )
+    build = request_json("GET", project_path(f"_apis/build/builds/{build_id}"))
+    issues = build_timeline_issues(build_id)
+    infra = [
+        (task, message)
+        for task, message in issues
+        if any(sign in message.lower() for sign in INFRA_FAILURE_SIGNS)
+    ]
+    # Canceled with no error at all is the classic vanished-agent shape.
+    verdict_infra = bool(infra) and len(infra) == len(issues) or (
+        build.get("result") == "canceled" and not issues
+    )
+    verdict = "INFRA" if verdict_infra else "QUALITY"
+    result = {
+        "buildId": build_id,
+        "buildNumber": build.get("buildNumber"),
+        "result": build.get("result"),
+        "url": build.get("_links", {}).get("web", {}).get("href"),
+        "verdict": verdict,
+        "evaluationId": evaluation_id,
+        "failures": [{"task": t, "message": m} for t, m in issues],
+    }
+    if args.json:
+        print_json(result)
+    else:
+        print(f"build {result['buildNumber']} (id {build_id}) result={build.get('result')}")
+        for task, message in issues:
+            print(f"  [{task}] {message.strip().splitlines()[0][:200]}")
+        print(f"VERDICT: {verdict}")
+        if verdict == "INFRA":
+            print("Re-queue the build validation policy; do not count this as a failed cycle.")
+            if evaluation_id:
+                print(
+                    f"  az repos pr policy queue --id {args.pr} "
+                    f"--evaluation-id {evaluation_id} --org <org>"
+                )
+        else:
+            print("The code is what failed. Fix it on the branch and push.")
+    if verdict == "INFRA":
+        sys.exit(BUILD_TRIAGE_INFRA)
 
 
 # --------------------------------------------------------------------- parser
@@ -959,12 +1225,42 @@ def build_parser() -> argparse.ArgumentParser:
     pr_link.add_argument("--repo", required=True)
     pr_link.add_argument("--apply", action="store_true")
 
-    pr_wait = subparsers.add_parser("pr-wait", help="Block until a PR completes or a policy fails")
+    pr_wait = subparsers.add_parser(
+        "pr-wait",
+        help="Block until a PR completes or stops making progress",
+        description=(
+            "Exit codes: 0 merged, 2 blocking build policy rejected (fix on the branch), "
+            "3 merge conflicts (rebase and force-push), 4 needs a human, 5 abandoned, "
+            "6 timed out while still in progress, 1 error."
+        ),
+    )
     pr_wait.add_argument("pr", type=int)
     pr_wait.add_argument("--repo", required=True)
     pr_wait.add_argument("--timeout", type=int, default=3600)
     pr_wait.add_argument("--interval", type=float, default=15.0)
     pr_wait.add_argument("--max-interval", type=float, default=60.0)
+
+    policy_check = subparsers.add_parser(
+        "policy-check",
+        help="Is a branch's policy set compatible with unattended auto-complete?",
+        description=(
+            "Exit 0 if every blocking policy on the branch can be satisfied by CI alone, "
+            "4 if one needs a person (Ivan's PRs would sit unmerged)."
+        ),
+    )
+    policy_check.add_argument("--repo", required=True)
+    policy_check.add_argument("--branch", default="main")
+
+    build_triage = subparsers.add_parser(
+        "build-triage",
+        help="Did a failed build fail on our code or on the infrastructure?",
+        description=(
+            "Exit 0 for a quality failure (fix the code), 7 for an infrastructure failure "
+            "(re-queue the policy; do not count it as a failed cycle)."
+        ),
+    )
+    build_triage.add_argument("build", type=int, nargs="?", help="Build id")
+    build_triage.add_argument("--pr", type=int, help="Find the failed build from this PR's policies")
 
     # Accept --json after the subcommand too. SUPPRESS keeps an absent sub-level
     # flag from overwriting the global one with its own default.
@@ -992,6 +1288,8 @@ COMMANDS = {
     "pr-create": cmd_pr_create,
     "pr-link": cmd_pr_link,
     "pr-wait": cmd_pr_wait,
+    "policy-check": cmd_policy_check,
+    "build-triage": cmd_build_triage,
 }
 
 

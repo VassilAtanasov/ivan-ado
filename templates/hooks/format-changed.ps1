@@ -1,5 +1,7 @@
 # PostToolUse hook (Edit|Write): auto-format the file that was just changed.
 # Reads the hook payload from stdin; always exits 0 (formatting must never block work).
+# /adopt extends the switch below with one arm per language in the project's stack profile —
+# a language with no arm here is still caught by the gate's format check, just later and noisier.
 
 $ErrorActionPreference = 'SilentlyContinue'
 try {
@@ -16,6 +18,10 @@ try {
             $sln = Get-ChildItem -Path (Join-Path (Join-Path $repoRoot 'server') '*') -Include '*.sln', '*.slnx' -File |
                 Sort-Object Extension | Select-Object -First 1
             if ($sln) { dotnet format $sln.FullName --include $file --verbosity quiet | Out-Null }
+        }
+        '.py' {
+            # ruff formats a single file in place and is a no-op when the project has no config.
+            if (Get-Command ruff -ErrorAction SilentlyContinue) { ruff format $file | Out-Null }
         }
         { $_ -in '.ts', '.tsx', '.css', '.json' } {
             $clientDir = Join-Path $repoRoot 'client'
