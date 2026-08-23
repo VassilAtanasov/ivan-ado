@@ -20,7 +20,7 @@
 ## 2. Stack
 
 <!-- Backend / Frontend / Data / Hosting target. Keep it in step with the Ivan project config's
-     Stack line in CLAUDE.md. -->
+     Stack line in AGENTS.md. -->
 
 ## 3. How to run it
 

@@ -1,9 +1,7 @@
 {
-  "//": "Merge into the project's .claude/settings.json during /adopt. Adapt the allow list to the stack profile recorded in CLAUDE.md (drop what the project does not use, add what it does); keep the deny list.",
+  "//": "Merge into the project's .claude/settings.json during /adopt. Adapt the allow list to the stack profile recorded in AGENTS.md (drop what the project does not use, add what it does); keep the deny list. Cursor permissions are not this file — tell the user to allow git, az, python, and pwsh *gate.ps1* in Agent auto-run.",
   "permissions": {
     "allow": [
-      "EnterWorktree",
-      "ExitWorktree",
       "Bash(dotnet:*)",
       "Bash(npm:*)",
       "Bash(npx:*)",
@@ -20,11 +18,11 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
+      "Bash(git worktree:*)",
       "Bash(az repos:*)",
       "Bash(az boards:*)",
       "Bash(az pipelines:*)",
       "Bash(az devops:*)",
-      "Bash(powershell:*gate.ps1*)",
       "Bash(pwsh:*gate.ps1*)",
       "Bash(python:*ado_cli.py*)",
       "PowerShell(python:*ado_cli.py*)",
@@ -44,6 +42,7 @@
       "PowerShell(git push:*)",
       "PowerShell(git pull:*)",
       "PowerShell(git fetch:*)",
+      "PowerShell(git worktree:*)",
       "PowerShell(az repos:*)",
       "PowerShell(az boards:*)",
       "PowerShell(az pipelines:*)",
@@ -85,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/format-changed.ps1",
+            "command": "pwsh -NoProfile -File .claude/hooks/format-changed.ps1",
             "timeout": 60
           }
         ]
@@ -97,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/stop-gate.ps1",
+            "command": "pwsh -NoProfile -File .claude/hooks/stop-gate.ps1",
             "timeout": 600
           }
         ]

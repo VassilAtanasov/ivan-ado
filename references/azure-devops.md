@@ -241,7 +241,7 @@ written to directly. **Docs-only changes are not exempt.** The sequence, for eve
    PR rather than implying it is already on `main`.
 
 **The one exception is `/adopt` before it creates the policies.** Adoption's own scaffolding commit
-(gate, hooks, pipeline, templates, CLAUDE.md config) has to reach `main` for the pipeline to exist
+(gate, hooks, pipeline, templates, AGENTS.md config) has to reach `main` for the pipeline to exist
 at all, and at that moment no policy is protecting the branch — so it pushes directly, and it must
 do so **before** §4.2 runs. Ordering it the other way makes `/adopt` create the policy that rejects
 its own push.

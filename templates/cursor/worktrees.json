@@ -1,0 +1,8 @@
+{
+  "setup-worktree-windows": "setup-worktree-windows.ps1",
+  "setup-worktree-unix": [
+    "if [ -n \"$ROOT_WORKTREE_PATH\" ] && [ -f \"$ROOT_WORKTREE_PATH/.env\" ]; then cp \"$ROOT_WORKTREE_PATH/.env\" .env; fi",
+    "if [ -f package-lock.json ]; then npm ci; elif [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; fi",
+    "if ls *.sln >/dev/null 2>&1; then dotnet restore; fi"
+  ]
+}

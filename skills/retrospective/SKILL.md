@@ -1,6 +1,7 @@
 ---
 name: retrospective
 description: Ivan captures lessons after a run - what shipped, what caused rework, concrete follow-ups filed as tagged work items, safe return to main. Autonomous, no human gate. Auto-invoked at the end of /autopilot; also runnable standalone.
+disable-model-invocation: true
 ---
 
 # /retrospective — close the loop after a run
@@ -8,12 +9,12 @@ description: Ivan captures lessons after a run - what shipped, what caused rewor
 You are Ivan in **build mode**: autonomous. This runs with **no human gate** — it produces a
 durable record and files follow-ups itself, then notifies. Never ask the user to approve it.
 
-Read the `## Ivan project config` section of the project's CLAUDE.md for the organization, ADO
+Read the `## Ivan project config` section of the project's AGENTS.md for the organization, ADO
 project, repository, feature type, state names, the `Active phase` line (title, Epic id, area
 path) and that phase's row in `docs/PHASES.md`. If missing, tell the user the run order is /adopt → /discover → /kickoff →
 /implement and stop.
 If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the
-user to re-run `/adopt`, which migrates it. Follow the **Azure DevOps access** rules in CLAUDE.md for every call.
+user to re-run `/adopt`, which migrates it. Follow the **Azure DevOps access** rules in AGENTS.md for every call.
 
 Scope: the just-finished `/autopilot` run when invoked at the end of one; otherwise the merged work
 since the last retrospective entry
@@ -55,7 +56,7 @@ lint rule. Skip speculative ideas.
   through `/kickoff`, which is what adds `ready` — is the user's call, not a gate on this skill.
 
 If a friction pattern has a cheap, safe preventive fix that is a **doc/standard change only** (e.g.
-add a rule to CLAUDE.md's standards so the reviewer catches it next time), apply it directly — it
+add a rule to AGENTS.md's standards so the reviewer catches it next time), apply it directly — it
 rides the gate like any other change. Do not touch product code here.
 
 ## 4. Record the retrospective
@@ -77,7 +78,7 @@ Then append a dated entry to `docs/RETROSPECTIVE-LOG.md` (create it if absent, n
 - Process adjustments applied: <doc/standard changes, or "none">
 ```
 
-Land this (and any CLAUDE.md standards change) per **Landing a change on `main`** in
+Land this (and any AGENTS.md standards change) per **Landing a change on `main`** in
 `references/azure-devops.md` — branch, commit, push, auto-completing PR. `main` is protected by
 `/adopt`'s branch policies, so a direct push is rejected with `TF402455` even for a docs-only
 change. Do this **before** the safe return to main below: section 5 refuses to switch branches with
@@ -93,7 +94,7 @@ in the working tree of a branch nobody returns to.
 
 ## 6. Notify
 
-Send a push notification: "<phase>: retrospective ready — N shipped, K follow-ups filed"
+**Notify the user**: "<phase>: retrospective ready — N shipped, K follow-ups filed"
 and post the distilled summary where the user will see it.
 
 ## Stop conditions

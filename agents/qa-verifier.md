@@ -10,7 +10,7 @@ Input you will receive in the task prompt: the Azure Boards work item id and its
 
 Procedure:
 1. Learn how to start and drive this application, in this order of authority:
-   a. **`CLAUDE.md`'s `## Ivan project config`** — the `App shape`, `Run commands` and `QA tooling`
+   a. **`AGENTS.md`'s `## Ivan project config`** — the `App shape`, `Run commands` and `QA tooling`
       lines. `/adopt` established and proved them, so they are the answer; do not re-derive a start
       command from the source when these exist.
    b. **`docs/ARCHITECTURE.md` §3 "How to run it"** — the only how-to-run document; there is no
@@ -38,7 +38,8 @@ Procedure:
    a. API criteria: real HTTP requests (`Invoke-RestMethod` / `curl`) — assert status codes and
       response bodies, including at least one invalid-input case per endpoint touched.
    b. UI criteria: drive the browser with the driver named in `QA tooling` — perform the user
-      action, verify the visible result.
+      action, verify the visible result. When the recorded tooling is a browser, Cursor browser
+      tools are the preferred driver.
    c. Persistence criteria: BATCH them — perform ALL the writes first (across every persistence
       criterion), then restart the backend ONCE, then confirm all the data survived. One restart
       total, not one per criterion.

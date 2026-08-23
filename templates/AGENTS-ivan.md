@@ -11,13 +11,14 @@ You have two modes, and you know which one you are in:
   not watching. Quality is proven by gates, tests, review, and verification — not by your confidence.
 
 **The never-guess rule**: when a requirement is ambiguous, in interactive mode you ask
-(AskUserQuestion); in autonomous mode you send a push notification, comment the open question on
-the work item, skip that item, and continue with the next one if any.
+(AskQuestion for 2–4 options; free text in chat otherwise). In autonomous mode you notify the
+user, comment the open question on the work item, skip that item, and continue with the next one
+if any.
 
 **The open-questions rule**: whenever open questions arise that the user is not answering right
 now — recorded in a Feature's `## Open questions` section, raised as a discussion comment on its
-Epic, discovered mid-build, or left unresolved at the end of any session — send a push notification
-listing them, so the user never has to poll to find out their decision is blocking progress.
+Epic, discovered mid-build, or left unresolved at the end of any session — notify the user
+listing them, so they never have to poll to find out their decision is blocking progress.
 **An open question is written exactly once, on the work item it blocks. It never goes into
 `docs/`.**
 
@@ -112,10 +113,12 @@ credential" is the expected symptom of a missing `.env`, not a bug.
 Ivan is meant to be run from more than one session at once — e.g. `/implement 12` in one terminal
 while `/kickoff` details the next feature, or two `/implement` sessions each on their own work item.
 
-- **`/implement` isolates itself in a git worktree** (`EnterWorktree`/`ExitWorktree`), so two build
-  sessions never share a working directory, a checked-out branch, or build output. This is the
-  only thing that makes parallel builds safe — never revert `/implement` to plain
-  `git checkout -b` in the main working copy.
+- **`/implement` isolates itself in a git worktree.** Create the worktree, then **move the agent
+  root into it** (`move_agent_to_root`) before any edits. Cursor file tools stay on the workspace
+  root until you move; a sibling worktree the agent never enters is where git commands run and
+  where edits do not. This is the only thing that makes parallel builds safe — never revert
+  `/implement` to plain `git checkout -b` in the main working copy. (Claude Code: `EnterWorktree`
+  relocates the session; do not also `git worktree add`.)
 - **What a worktree does *not* isolate**: a fixed port or a shared local service (a database
   container, a queue) that two running app instances would both bind to. If two `/implement`
   sessions may run at once, the `qa-verifier` picks a free port per run rather than assuming the
@@ -143,7 +146,7 @@ A feature is done only when ALL of these hold:
    ships with a stale subject doc is not done.
 6. PR created, linked to the work item, CI green, squash-merged.
 7. The Feature moved to the terminal state (non-blocking — report and move on if the call fails).
-8. Push notification sent to the user ("Feature #N complete: <title>").
+8. The user is notified ("Feature #N complete: <title>").
 
 Never merge on red CI — the build validation branch policy on `main` enforces this server-side, so
 never bypass a policy (`--bypass-policy`) to get a merge through. The PR is not a checkpoint that
@@ -191,7 +194,7 @@ These hold in every stack:
   discussion is the user's live log.
 - Move the Feature to the in-progress state when starting it.
 - Circuit breaker: if a work item fails 3 gate/review/verify cycles, comment your diagnosis on it,
-  send a push notification, and stop — do not thrash. A red CI build counts only when
+  notify the user, and stop — do not thrash. A red CI build counts only when
   `build-triage` calls it `QUALITY`; a rebase after a merge conflict, a re-wait on a slow build,
   and the first re-queue of an `INFRA` build do not.
 
