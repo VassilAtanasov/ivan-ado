@@ -1,6 +1,7 @@
 ---
 name: discover
 description: Ivan decomposes one phase (an Azure Boards Epic) into its list of features - product ideation, feature decomposition, and architecture - writing the features back as Feature work items. Writes the phase goal and its architecture decisions into the Epic description; it writes no docs. Run after /adopt; each feature is then detailed by /kickoff. Resumable.
+disable-model-invocation: true
 ---
 
 # /discover — one phase → its feature list
@@ -24,7 +25,7 @@ development, and its features are one backlog.
 
 ## 0. Orient (before any question)
 
-Precondition: the project has an `## Ivan project config` section in CLAUDE.md (created by
+Precondition: the project has an `## Ivan project config` section in AGENTS.md (created by
 `/adopt`). If it is missing, tell the user to run `/adopt` first and stop. Read from it: the
 organization, ADO project, repository, **feature type**, **state names**, and the Projects table.
 
@@ -67,7 +68,7 @@ and what the three passes still need to settle.
 Goal: a sharp phase goal, named target users, observable success criteria.
 - **Begin from the Epic, not from a blank page.** Read back its title and description as your
   understanding of the goal, and ask the user — a single open prompt, free text, not
-  AskUserQuestion — to correct or expand it. If the Epic has no description, ask them to describe
+  AskQuestion — to correct or expand it. If the Epic has no description, ask them to describe
   this phase in their own words.
 - Be a partner, not a stenographer: propose sharper framings, point out when the target user is
   "everyone" (it never is), challenge features masquerading as goals.
@@ -159,13 +160,13 @@ discussion comment on the Epic prefixed `Open question:` for phase-level ones
 (`ado_cli.py comment <id> --file <file> --apply`). Nothing unresolved may live only in chat, and
 nothing unresolved goes into `docs/`: the docs record what is settled, and a question written in
 three places gets answered in one of them. Whenever the session pauses or ends with any question
-open, send a push notification: "<phase>: N open questions from discovery need your input" with the
+open, notify the user: "<phase>: N open questions from discovery need your input" with the
 questions listed, so the user knows discovery is waiting on them without polling.
 
 ## Additional notes
 
 Before exiting, once all three passes are complete, ask the user as a final open prompt (free
-text, not AskUserQuestion) whether they have any additional notes, constraints, or context they
+text, not AskQuestion) whether they have any additional notes, constraints, or context they
 want captured — anything that didn't surface naturally in the passes above. Fold whatever they
 give into the Epic description, or onto the Feature it belongs to — and if it opens a new question,
 onto that work item's `## Open questions`. Then proceed to Exit. If they have nothing to add, move on.
@@ -185,7 +186,7 @@ lost with the session. This pass structure is also what makes `/discover` resuma
 reads the Epic back and continues from the first pass that is not yet written.
 
 Append the phase's row to `docs/PHASES.md` (title, Epic id, area path, the subjects it touches,
-`Shipped: in progress`) and set `Active phase` in the `## Ivan project config` section of CLAUDE.md
+`Shipped: in progress`) and set `Active phase` in the `## Ivan project config` section of AGENTS.md
 to this phase, its Epic id and its area path. **That row and that line are the only two things
 `/discover` writes to the repo** — the ledger has to exist before `/implement` can fill it in, and
 neither is a design decision. Then **land them** — branch, commit, push,

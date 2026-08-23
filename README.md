@@ -1,9 +1,10 @@
-# Ivan — an autonomous SDLC agent for Claude Code on Azure DevOps
+# Ivan — an autonomous SDLC agent on Azure DevOps
 
-**Ivan** is a Claude Code plugin that turns any Azure DevOps repository into an autonomous software
-development lifecycle: you describe the product, Ivan plans it with you on Azure Boards, then builds
-it feature by feature — gated, tested, reviewed, verified, and merged through pull requests —
-pinging you only when something is done or needs your decision.
+**Ivan** is a Cursor plugin (Claude Code kept as a second manifest) that turns any Azure DevOps
+repository into an autonomous software development lifecycle: you describe the product, Ivan plans
+it with you on Azure Boards, then builds it feature by feature — gated, tested, reviewed, verified,
+and merged through pull requests — notifying you only when something is done or needs your
+decision.
 
 ## Planning in Azure Boards
 
@@ -63,133 +64,124 @@ a time:
 
 | Skill | What it does |
 |---|---|
-| `/adopt` | Wires Ivan into the current repo. Settles the **stack profile** first (detect → confirm → record: stack, layout, app shape, run commands, QA tooling, supply-chain check), then installs everything that depends on it: quality gate (`gate.ps1`) with the right legs, coding conventions and lint config, enforcement hooks, `azure-pipelines.yml` with the runtimes the agent needs, the **build validation branch policy** on `main`, doc templates, permission allowlist, board-shape detection, and the `## Ivan project config` section in CLAUDE.md. Idempotent, and it proves the gate, the supply-chain step and the QA tooling all really fire before handing off. |
-| `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list: ideation → feature decomposition → architecture, seeded by what's already on the board. Creates the Feature work items with stub descriptions, ensures the phase's area path, and writes the phase goal, success criteria and architecture decisions into the Epic description, and appends the phase's row to `docs/PHASES.md`. Resumable. |
-| `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item's description as Markdown; then tags it `ready`. It writes no docs — the description is the contract. Open questions block the tag instead of becoming guesses. |
-| `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge (self-healing: rebases on conflict, fixes red builds, waits out slow ones) → terminal state. |
-| `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends and points you at what still needs `/kickoff` or the next Epic. |
-| `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work items tagged `follow-up` (never `ready`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
+| `/adopt` | Wires Ivan into the current repo. Settles the **stack profile** first (detect → confirm → record: stack, layout, app shape, run commands, QA tooling, supply-chain check), then installs everything that depends on it: quality gate (`gate.ps1`) with the right legs, coding conventions and lint config, enforcement hooks for **both Cursor and Claude Code**, `azure-pipelines.yml`, the **build validation branch policy** on `main`, doc templates, and the `## Ivan project config` section in `AGENTS.md` (plus a one-line `CLAUDE.md` shim). Idempotent, and it proves the gate, both hook shapes, the supply-chain step and the QA tooling before handing off. |
+| `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list. Creates Feature work items with stub descriptions, ensures the phase's area path, writes the phase goal into the Epic description, and appends the phase's row to `docs/PHASES.md`. Resumable. |
+| `/kickoff <feature>` | **Depth, one run per feature.** Interviews you; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item description; tags it `ready`. Writes no docs — the description is the contract. |
+| `/implement <id>` | One work item end-to-end **in its own git worktree** (agent root moved into that worktree before any edits): code + tests → gate → adversarial `code-reviewer` (read-only) ∥ `qa-verifier` against the running app → PR with auto-complete → branch policy green → server-side squash-merge → terminal state. |
+| `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends. |
+| `/retrospective` | Autonomous close-out: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files follow-ups tagged `follow-up` (never `ready`), and safely returns to `main`. |
 
 ## Running several sessions at once
 
-`/implement` (and `/autopilot`, which is just `/implement` in a loop) isolates each run in its own
-git worktree, so two sessions can build two different work items at the same time without sharing a
-checked-out branch or build output. `/discover` and `/kickoff` land their docs the same way every
-other change lands — a short-lived branch and an auto-completing squash PR — because the branch
-policies on `main` reject a direct push, docs included. Neither isolates a fixed network port two concurrently-running app instances would both bind to — see
-**Concurrency** in the project's `CLAUDE.md` for the full picture.
+`/implement` isolates each run in its own git worktree and **moves the agent root into it**, so two
+sessions can build two different work items at the same time without sharing a checked-out branch
+or having file edits land in the main checkout. `/discover` and `/kickoff` land their docs through
+a short-lived branch and an auto-completing squash PR — branch policies on `main` reject a direct
+push, docs included. Neither isolates a fixed network port — see **Concurrency** in the project's
+`AGENTS.md`.
 
 ## Quality guarantees
 
-1. **One gate script** (`gate.ps1`) — format check, build (warnings-as-errors), tests, typecheck, lint, dependency advisories, optional coverage floor (`GATE_COVERAGE_MIN`) — run locally, by the Stop hook, and by CI. .NET, Node and Python legs run in parallel; a green run stamps the working tree (`.gate-stamp`).
-2. **Supply chain in the gate, not in someone's inbox** — every leg ends with an advisory check (`dotnet list package --vulnerable` parsed for High/Critical, `npm audit --audit-level=high` against a committed lockfile, `pip-audit --strict`). An agent that adds dependencies unattended is exactly the case where a vulnerable package has to be a red build.
-2. **Stop hook** — Ivan cannot end a working turn while the gate fails; the failure is fed back until fixed. Skips the re-run when the tree already matches the last green stamp.
-4. **Fresh-context subagents** — `code-reviewer` (read-only, adversarial, no memory of writing the code) and `qa-verifier` (exercises the real running app per acceptance criterion, using the run commands and QA tooling `/adopt` recorded and proved — a tool it needs and doesn't have is reported, never worked around).
-5. **Azure Pipelines + a build validation branch policy** — the same gate re-runs on every PR, and
-   the policy makes merging on red impossible server-side rather than a rule Ivan has to obey.
-6. **Merges that heal themselves** — the PR is the enforcement point (Azure Repos ignores `pr:`
-   triggers, so a branch policy is the only pre-merge check that exists), but it is not a place
-   Ivan waits for you. `pr-wait` classifies every outcome by exit code: a red build gets fixed on
-   the branch, a branch that fell behind `main` gets rebased and force-pushed, a slow build gets
-   waited out, and a build that died on a dropped agent or a dead package feed gets re-queued
-   rather than counted against the circuit breaker. `/adopt` checks at setup time that no blocking
-   policy on `main` needs a human, so that's found with you in the room. Only a human-gated policy,
-   an abandoned PR, or a conflict Ivan can't resolve with confidence in both sides' intent reaches
-   you.
-7. **Coding standards, machine-enforced first** — `/adopt` installs the stack's linter/compiler
-   config (for .NET: `.editorconfig` + `Directory.Build.props`, so analyzer and style rules become
-   build errors) and writes the judgement rules the tooling *can't* check into `docs/CONVENTIONS.md`,
-   which the code-reviewer reads on every diff. Conventions ship for C#, Python and
-   TypeScript/React/Next.js; other stacks get one written in the same shape.
+1. **One gate script** (`gate.ps1`) — format, build (warnings-as-errors), tests, typecheck, lint,
+   dependency advisories, optional coverage floor — run locally, by the Stop hook, and by CI.
+2. **Supply chain in the gate** — every leg ends with an advisory check. A skipped local check
+   still fails the branch policy.
+3. **Stop hook (both editors)** — Ivan cannot end a working turn while the gate fails. Cursor
+   re-prompts via `followup_message` (`loop_limit` 30). Claude Code uses exit 2 + stderr.
+4. **Push deny while the stamp is stale** — Cursor `beforeShellExecution` denies `git push` /
+   `az repos pr` when `.gate-stamp` does not match the working tree (`failClosed: true`).
+5. **Fresh-context subagents** — `code-reviewer` (read-only) and `qa-verifier` (running app, browser
+   tools when the recorded QA tooling is a browser).
+6. **Azure Pipelines + a build validation branch policy** — merging on red is impossible
+   server-side. Auto-complete merges the moment policies pass.
 
-## Tracking & notifications
+## Install
 
-Feature work items are the backlog, the phase's area path is the status view, and each item's
-**discussion** is the live log (Ivan comments at every stage). Push notifications on: feature
-complete, backlog complete, stuck (circuit breaker), clarification needed, open questions awaiting
-input.
+### Cursor (normal use)
 
-## Migrating from 2.0
+**Customize → Add Marketplace → Import from Github** → this repo → Install `ivan` (user or project
+scope). Enable **Auto Refresh** and the Cursor GitHub App so pushes to the tracked branch re-index
+(at most every 10 minutes). Bump `version` in `.cursor-plugin/plugin.json` in the same commit you
+ship; the version string itself is not what triggers the update. Manual **Refresh** in marketplace
+settings is the fallback; a stale IDE cache may need Refresh + uninstall/reinstall.
 
-2.1 retires the per-phase `docs/<project-slug>/` folders and the `REQUIREMENTS.md` inside them. The
-skills **refuse to run** on the old layout rather than guessing which model a repo is on: prose
-instructions that branch on two coexisting doc models get blended, and the old model has no
-decision index for `/implement` to allocate against.
+**Import from Github adds a marketplace catalog.** It does not import a plugin folder. After the
+catalog lists Ivan, you still Install `ivan`.
 
-`/adopt` §5b performs the migration, with you, in one PR: bring `docs/ARCHITECTURE.md` up to the
-current template (§7 subject map, §8 decision index, §9 doc conventions), collapsing any per-phase
-"How to run it" chain into one current §3; agree the subject list and create the folders; move each
-phase's decisions into the owning subject, keeping their ids if they are already globally unique;
-build `docs/PHASES.md`; fold each `REQUIREMENTS.md`'s goal and success criteria into its Epic and
-its **tuning tables and settled rationale** into the owning subject; then delete the phase folders
-and repoint every path that named them.
+If the importer rejects `source: "./"`, the marketplace entry may need `source` pointing at a
+subfolder; today this repo is a single-plugin root (`source: "./"`).
 
-After publishing, every machine needs `claude plugin marketplace update ivan` **and a session
-restart** — skills load at session start, so a half-updated machine runs 2.0 skills against a 2.1
-repo, hits the refusal above, and looks broken.
+### Cursor (this checkout, uncommitted work)
 
-## Install (once per machine)
+There is no file watcher. After you edit skills, agents, or the manifest:
+
+```powershell
+powershell -NoProfile -File scripts/install-cursor.ps1
+```
+
+(`pwsh` also works if PowerShell 7 is on PATH.)
+
+That copies this checkout to `%USERPROFILE%\.cursor\plugins\local\ivan`. Then **Developer: Reload
+Window** (sometimes a new chat). An already-running `/implement` keeps the old skill text until
+reload.
+
+Alternatively: **Customize → Plugins → Add → From Local Path** pointed at this checkout (or the
+copy under `plugins\local\ivan`). Same reload requirement.
+
+Do **not** use `/add-plugin` / `install_plugin` (first-party slugs only). Do **not** install Ivan
+as a personal skill under `~/.cursor/skills/`.
+
+### Claude Code
 
 ```
 claude plugin marketplace add VassilAtanasov/ivan-ado
 claude plugin install ivan@ivan
 ```
 
-To run it from a local checkout instead (what you want while the port is in flight):
+Local checkout: `claude plugin marketplace add C:\path\to\ivan-ado` then
+`claude plugin install ivan@ivan`. Restart the session after installing.
 
-```
-claude plugin marketplace add C:\path\to\ivan-ado
-claude plugin install ivan@ivan
-```
+### Two different installs
 
-(or the `/plugin marketplace add` / `/plugin install` slash commands in an interactive session).
-Restart the session after installing; skills load at session start.
+Putting Ivan **into the editor** (GitHub marketplace, From Local Path, or `plugins/local`) is not
+the same as `/adopt` copying `gate.ps1` + hooks **into an app repo**.
 
-Prerequisites, checked by `/adopt`'s preflight: **Python 3.9+** (every phase calls `ado_cli.py`),
-the **Azure CLI** with the `azure-devops` extension, and an Azure DevOps **PAT** — Work Items
-(Read & write), Code (Read & write + Status), Build (Read & execute) — as `AZURE_DEVOPS_PAT`, in
-your environment or in the repo's gitignored `.env`. A PAT stored by `az devops login` lives in the
-OS keyring and is invisible to the CLI, so `az` working is not evidence that Ivan will.
+### Prerequisites
 
-Then in the project you want Ivan to run: `/adopt`, and follow the lifecycle above.
+Checked by `/adopt`'s preflight: **Python 3.9+** (every phase calls `ado_cli.py`), the **Azure CLI**
+with the `azure-devops` extension, and an Azure DevOps **PAT** — Work Items (Read & write), Code
+(Read & write + Status), Build (Read & execute) — as `AZURE_DEVOPS_PAT` in the repo's gitignored
+`.env`. A PAT stored by `az devops login` lives in the OS keyring and is invisible to the CLI, so
+`az` working is not evidence that Ivan will.
 
-A project can additionally pin Ivan in its `.claude/settings.json` — this **declares** the
-marketplace and keeps the plugin enabled for everyone, but each collaborator still runs the
-two install commands once on their machine:
+Then in the project you want Ivan to run: `/adopt`. In Cursor Agent auto-run, allow `git`, `az`,
+`python`, and `pwsh *gate.ps1*` (and the hook scripts under `.claude/hooks/`).
 
-```json
-{
-  "extraKnownMarketplaces": {
-    "ivan": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
-  },
-  "enabledPlugins": { "ivan@ivan": true }
-}
-```
+## Update
 
-## Update (after enhancing Ivan)
+**Cursor:** push to the branch the marketplace tracks (usually `main`). Auto Refresh + GitHub App
+re-index; otherwise Refresh in marketplace settings. Reload Window after a local copy-install.
 
-```
-claude plugin marketplace update ivan
-```
-
-All projects on the machine pick up the new version at their next session. Template files
-already copied into projects by `/adopt` (gate.ps1, hooks, azure-pipelines.yml, conventions, stack lint config)
-are refreshed by re-running
+**Claude Code:** `claude plugin marketplace update ivan`. Template files already copied into
+projects (`gate.ps1`, hooks, `azure-pipelines.yml`, conventions) are refreshed by re-running
 `/adopt` in that project.
+
+2.2 is a breaking adopt layout for existing projects (`AGENTS.md`, dual hooks). Re-run `/adopt` to
+migrate: it renames a filled `CLAUDE.md` to `AGENTS.md` and writes the shim.
 
 ## Layout
 
 ```
-.claude-plugin/plugin.json   plugin manifest (+ marketplace.json — this repo is its own marketplace)
-skills/                      adopt, discover, kickoff, implement, autopilot, retrospective
-agents/                      code-reviewer, qa-verifier
-scripts/                     ado_cli.py (Azure DevOps REST helper — work items, comments, PRs,
-                             the CI wait; every text-carrying write goes through it)
-references/                  azure-devops.md (API notes + the Epic→Feature board contract)
-references/conventions/      per-stack coding conventions installed as docs/CONVENTIONS.md by /adopt
-templates/                   gate.ps1, hooks, azure-pipelines.yml, CLAUDE-ivan.md, settings
-                             snippet, gitignore, gitattributes, doc skeletons
-templates/dotnet/            .editorconfig + Directory.Build.props (installed only for .NET stacks)
+.cursor-plugin/plugin.json     Cursor plugin manifest (v2.2.0)
+.cursor-plugin/marketplace.json Cursor marketplace catalog (Import from Github)
+.claude-plugin/plugin.json     Claude Code manifest (same version)
+.claude-plugin/marketplace.json Claude Code marketplace
+skills/                        adopt, discover, kickoff, implement, autopilot, retrospective
+agents/                        code-reviewer, qa-verifier
+rules/                         ivan.mdc (persona only; project config stays in AGENTS.md)
+scripts/                       ado_cli.py, install-cursor.ps1
+references/                    azure-devops.md, conventions/
+templates/                     gate.ps1, AGENTS-ivan.md, hooks/, cursor/, claude/, doc skeletons
 ```
 
-Reference implementation: https://github.com/VassilAtanasov/Mills
+The quality gate is **not** in the plugin's own hooks — `/adopt` installs it per project.

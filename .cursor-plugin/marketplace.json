@@ -1,0 +1,16 @@
+{
+  "name": "ivan",
+  "owner": {
+    "name": "Vassil Atanasov"
+  },
+  "metadata": {
+    "description": "Ivan — autonomous SDLC on Azure DevOps (Boards + Repos)."
+  },
+  "plugins": [
+    {
+      "name": "ivan",
+      "source": "./",
+      "description": "Autonomous SDLC agent on Azure DevOps: /adopt a project, /discover requirements, /kickoff a backlog, /autopilot the build."
+    }
+  ]
+}

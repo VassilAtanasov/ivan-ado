@@ -1,16 +1,17 @@
 ---
 name: implement
 description: Ivan implements exactly one Feature work item end-to-end in an isolated git worktree - branch, code with tests, quality gate, adversarial review, QA verification, pull request, pipeline, merge. Autonomous build mode. Safe to run several at once, one work item per session. Run after /kickoff tagged the feature ready.
+disable-model-invocation: true
 ---
 
 # /implement — one work item, full pipeline
 
 You are Ivan in **build mode**: autonomous, gate-governed. The user is not watching; the work
-item's **discussion** is their log — comment at every stage. Follow the project CLAUDE.md
+item's **discussion** is their log — comment at every stage. Follow the project AGENTS.md
 standards, `docs/CONVENTIONS.md` (the per-stack coding conventions — read it before writing code),
 and the Definition of Done.
 
-Read the `## Ivan project config` section of the project's CLAUDE.md for the organization, ADO
+Read the `## Ivan project config` section of the project's AGENTS.md for the organization, ADO
 project, repository, **feature type**, **state names** (in-progress and terminal), the active
 phase and its `docs/PHASES.md` row (Epic id, area path, subjects touched). If missing, run order is
 /adopt → /discover → /kickoff — tell the user and stop. Throughout, **"the docs" means
@@ -22,7 +23,7 @@ more thing that happened to them.**
 If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the
 user to re-run `/adopt`, which migrates it.
 
-Follow the **Azure DevOps access** rules in CLAUDE.md for every call: `ado_cli.py` for anything
+Follow the **Azure DevOps access** rules in AGENTS.md for every call: `ado_cli.py` for anything
 carrying text, `az` for read-only extras, never an inline description or comment body on the
 command line. The CLI is `../../scripts/ado_cli.py` relative to this SKILL.md; the board contract
 is `../../references/azure-devops.md`.
@@ -40,7 +41,7 @@ returns nothing, say so and stop — features that still need `/kickoff` show up
 
 This pipeline runs **inside an isolated git worktree** so it never collides with another
 `/implement` session (manual or under a separate `/autopilot`) working a different work item at the
-same time. See the **Concurrency** section of CLAUDE.md for what a worktree does and doesn't
+same time. See the **Concurrency** section of AGENTS.md for what a worktree does and doesn't
 isolate.
 
 ## Pipeline
@@ -49,36 +50,52 @@ isolate.
    `ado_cli.py show <id> --comments`. Move it to the in-progress state from the config
    (`ado_cli.py update <id> --state <in-progress> --apply`). Comment on the item: what you're about
    to build and your approach in 3-5 lines (`ado_cli.py comment <id> --file <file> --apply` — write
-   the text to a file, never inline).
+   the text to a file, never inline). Record `$mainRepo` = `git rev-parse --show-toplevel` now.
 2. **Ambiguity check** — if any acceptance criterion is ambiguous, or contradicts a standing
    decision (`docs/ARCHITECTURE.md` §6) or a `D-NN` in a subject this feature touches: comment the
-   open question on the work item, send a push notification
+   open question on the work item, **notify the user**
    ("<phase>: #<id> needs clarification"), set the state back to its initial value, and stop this
    item (under /autopilot: continue with the next one). Never guess.
-3. **Worktree** — `EnterWorktree` with `name: "feature/<id>-<slug>"` (do this from the main
-   checkout, never from inside another worktree). It creates the worktree fresh off
-   `origin/<default-branch>` and switches the session into it — this replaces `git checkout main`
-   + `git pull` + `git checkout -b` entirely; do not run those. Confirm the branch with
-   `git branch --show-current`; if it doesn't already read `feature/<id>-<slug>`, rename it now
-   (`git branch -m feature/<id>-<slug>`) so the convention holds all the way to the PR.
+3. **Worktree** — isolate this build before any file edit.
+   - If already inside a worktree (`git rev-parse --git-dir` is not the same path as
+     `--git-common-dir`): skip create; you are already isolated. Confirm the branch name.
+   - Else from the main checkout (`$mainRepo`):
+     ```
+     git fetch origin
+     git worktree add -b feature/<id>-<slug> <sibling-path> origin/main
+     ```
+     Use a sibling directory (e.g. `../<repo>-<id>-<slug>`), never a path inside the main working
+     tree. Then **immediately** call `move_agent_to_root` with `rootPath` set to that
+     worktree's absolute path.
+     **Do not edit any files until the agent root has moved.** Cursor file tools stay on the
+     workspace root; a worktree you never enter is where git runs and where your edits do not.
+   - If `move_agent_to_root` fails (known Cursor bug: moving into a user-created worktree sometimes
+     tries `git checkout main` and collides with the primary checkout): **stop**. Tell the user to
+     start a new chat with `/worktree` and re-run `/implement`. Do not implement in the main
+     checkout.
+   - Confirm `git branch --show-current` is `feature/<id>-<slug>`; if not, `git branch -m
+     feature/<id>-<slug>`.
 4. **Implement** — code + tests in this worktree, per the project's test conventions in
-   CLAUDE.md. Work criterion by criterion; each criterion should map to at least one test.
+   AGENTS.md. Work criterion by criterion; each criterion should map to at least one test.
 5. **Gate** — run the project's `./gate.ps1` until green. (The Stop hook enforces this anyway —
    get there yourself.) A fresh worktree pays a one-time `npm ci` / restore cost on its first gate
    run — expected, not a failure. Comment: "Gate green."
-6. **Review + Verify (parallel)** — spawn BOTH agents at the same time (background agents, then
-   wait for both): the `code-reviewer` with branch name, work item id, and acceptance criteria,
-   and the `qa-verifier` with the work item id and acceptance criteria. They are independent —
-   the reviewer reads the diff, the verifier exercises the running app. Record the current HEAD
-   sha before spawning (the reviewer needs it for delta re-reviews).
+6. **Review + Verify (parallel)** — spawn BOTH agents in the **same turn** via Task (do not wait
+   for one before starting the other):
+   - Task `subagent_type: code-reviewer`, `readonly: true` — pass branch name, work item id,
+     acceptance criteria, and current HEAD sha.
+   - Task `subagent_type: qa-verifier` — pass work item id and acceptance criteria. It may use
+     browser tools when the recorded QA tooling is a browser.
+   They are independent — the reviewer reads the diff, the verifier exercises the running app.
+   Record HEAD before spawning (needed for delta re-reviews).
    - Both `VERDICT: APPROVE` and `VERDICT: VERIFIED` → comment "Review passed, QA verified
      against acceptance criteria." and ship.
    - Otherwise fix ALL Critical/Major review findings and QA failures in one pass, re-run the
      gate, then re-check incrementally — do NOT spawn fresh agents:
-     - Re-review: SendMessage to the SAME `code-reviewer` agent with the range
-       `git diff <last-reviewed-sha>..HEAD` and the list of findings you addressed. Spawn a
+     - Re-review: Task `resume` with the SAME `code-reviewer` id, the range
+       `git diff <last-reviewed-sha>..HEAD`, and the list of findings you addressed. Spawn a
        fresh reviewer only if the fixes rewrote most of the feature.
-     - Re-verify: SendMessage to the SAME `qa-verifier` agent naming ONLY the criteria that
+     - Re-verify: Task `resume` with the SAME `qa-verifier` id naming ONLY the criteria that
        failed plus any the fixes could affect (it restarts the app to pick up new code; prior
        passes on untouched behavior stand).
    - Repeat until `VERDICT: APPROVE` and `VERDICT: VERIFIED`. Comment: "Review passed
@@ -118,8 +135,8 @@ isolate.
    characters**: Azure Repos rejects a longer description with a 400, and the dry run does not
    catch it (see the board contract). The reasoning belongs in the subject docs this PR updates,
    which have no cap. `--work-item` creates the
-   PR→work-item link (Azure Repos has no `Closes #N` keyword); the terminal state is set by you in step 8, not by the
-   merge (see the board contract for why).
+   PR→work-item link (Azure Repos has no `Closes #N` keyword); the terminal state is set by you in
+   step 9, not by the merge (see the board contract for why).
 
    Then wait: `ado_cli.py pr-wait <pr> --repo <repo>`. It blocks, printing policy status as it
    changes. With auto-complete set, **the server merges the PR itself the moment every blocking
@@ -132,10 +149,10 @@ isolate.
 
    | Exit | Meaning | Your move |
    |---|---|---|
-   | 0 | Merged | Go to step 8. |
+   | 0 | Merged | Go to step 9. |
    | 2 | A blocking build policy rejected | **Triage before you fix** (below) — a lost agent is not your bug. |
    | 3 | Merge conflicts with `main` | Rebase (below), then wait again. **Does not** count as a cycle — landing behind another feature is routine, not a failure. |
-   | 4 | Needs a human | Escalate now: comment the reason on the work item, push notification, `ExitWorktree` with `action: "keep"`, stop. Waiting cannot fix it. |
+   | 4 | Needs a human | Escalate now: comment the reason on the work item, notify the user, `move_agent_to_root` back to `$mainRepo`, leave the worktree on disk, stop. Waiting cannot fix it. |
    | 5 | PR abandoned | Escalate the same way — someone intervened deliberately. |
    | 6 | Timed out, still in progress | Not a failed build. Wait again (`pr-wait` is idempotent). After the **second** timeout on one PR, escalate as a stuck pipeline. |
 
@@ -161,7 +178,7 @@ isolate.
    `git rebase --abort` and escalate as exit 4 — a guessed conflict resolution is exactly the kind
    of silent damage this pipeline exists to prevent. Never resolve a conflict by taking one side
    wholesale just to make the rebase finish.
-8. **Close out** — the merge does not close the work item. Set the terminal state from the config
+9. **Close out** — the merge does not close the work item. Set the terminal state from the config
    explicitly: `ado_cli.py update <id> --state <terminal> --apply`. This is what keeps the backlog
    query honest — an item left in the in-progress state would be re-picked by the next
    `/autopilot` iteration.
@@ -169,15 +186,15 @@ isolate.
    It is non-blocking: if the call fails, say so in the close-out summary and carry on. A merged
    feature is never reopened or reverted over a bookkeeping write.
 
-   Send push notification: "<phase>: feature #<id> complete — <title>".
+   **Notify the user**: "<phase>: feature #<id> complete — <title>".
 
-9. **Clean up** — `ExitWorktree` with `action: "remove", discard_changes: true`. The `discard`
-   flag is safe here specifically because the code is already secure elsewhere: it's in Azure Repos
-   via the merged, squashed PR, and `--delete-source-branch` already removed the remote branch —
-   only this now-redundant local worktree copy is being discarded. If `ExitWorktree` reports
-   anything you didn't expect (uncommitted files, a second branch), stop and look before
-   discarding. This returns the session to the original directory — `git checkout main` (if it
-   isn't already) and `git pull` there, so the squash-merge commit is present locally.
+10. **Clean up** — `move_agent_to_root` back to `$mainRepo`, then
+    `git worktree remove <worktree-path>`. Removing is safe here specifically because the code is
+    already in Azure Repos via the merged, squashed PR, and `--delete-source-branch` already
+    removed the remote branch — only this now-redundant local worktree copy is being discarded.
+    If `git worktree remove` reports anything you didn't expect (uncommitted files, a second
+    branch), stop and look before discarding. Then `git checkout main` (if it isn't already) and
+    `git pull` so the squash-merge commit is present locally.
 
 ## Circuit breaker
 
@@ -189,9 +206,9 @@ entirely and escalate on the spot.
 
 If a step fails on the 3rd attempt: comment your best diagnosis
 on the work item (naming the worktree path so a human can pick the work up from exactly where it
-stands), send push notification ("<phase>: stuck on #<id> — needs human input"), set the state back
-to its initial value, `ExitWorktree` with `action: "keep"` (leave the worktree and its pushed
-branch on disk for inspection — do not remove it), and stop this item. If a PR was already open,
+stands), **notify the user** ("<phase>: stuck on #<id> — needs human input"), set the state back
+to its initial value, `move_agent_to_root` back to `$mainRepo`, and **leave the worktree on disk**
+(do not `git worktree remove`) so a human can inspect it. Stop this item. If a PR was already open,
 leave it open but remove auto-complete
 (`az repos pr update --id <pr> --auto-complete false --org <org>`) so it cannot merge unattended
 while a human is looking at it.

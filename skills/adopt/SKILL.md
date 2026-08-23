@@ -1,6 +1,7 @@
 ---
 name: adopt
-description: Wire Ivan's autonomous SDLC into the current project - Azure Repos/Boards setup, quality gate, enforcement hooks, pipeline, branch policy, doc templates, and the Ivan project config in CLAUDE.md. Run once per project, before /discover.
+description: Wire Ivan's autonomous SDLC into the current project - Azure Repos/Boards setup, quality gate, enforcement hooks, pipeline, branch policy, doc templates, and the Ivan project config in AGENTS.md. Run once per project, before /discover.
+disable-model-invocation: true
 ---
 
 # /adopt — install Ivan into this project
@@ -11,10 +12,19 @@ This skill's templates live in this plugin's `templates/` directory (resolve it 
 SKILL.md file's location: `../../templates/`). The Azure DevOps contract and CLI are documented in
 `../../references/azure-devops.md` — read it before your first call.
 
+**Always install both editor profiles.** Do not detect Cursor vs Claude Code. Every adopted repo
+gets `AGENTS.md`, a one-line `CLAUDE.md` shim (`@AGENTS.md`), `.cursor/hooks.json`,
+`.cursor/worktrees.json`, and `.claude/settings.json` pointing at the same dual-payload scripts
+under `.claude/hooks/`.
+
+When a choice has 2–4 realistic options, use **AskQuestion** (detected/recommended answer first).
+Fall back to a free-text chat question only when the answer is open-ended. If AskQuestion is
+unavailable, ask in chat.
+
 ## 1. Repo and Azure DevOps auth
 
 - `git init -b main` if not a repo.
-- Ensure an Azure Repos remote. If none, ask the user (AskUserQuestion) whether to create one
+- Ensure an Azure Repos remote. If none, ask the user (AskQuestion) whether to create one
   (`az repos create --name <name> --project <project> -o json`, then
   `git remote add origin https://dev.azure.com/<org>/<project>/_git/<repo>`) or connect an existing
   repo URL. Git auth goes through Git Credential Manager — **never** put a PAT in the remote URL.
@@ -98,7 +108,7 @@ down. Never infer it again later from whatever files happen to be lying around.
    `docs/ARCHITECTURE.md` if an earlier phase already decided. Note the **layout** (where server
    code lives, where client code lives) and the **app shape** — HTTP API, browser UI, CLI, desktop,
    worker, library. The shape is what decides what the `qa-verifier` needs.
-2. **Confirm or ask** — put the detected profile to the user with AskUserQuestion, detected answer
+2. **Confirm or ask** — put the detected profile to the user with AskQuestion, detected answer
    first. An empty repo has nothing to detect, so ask outright; if the answer is "not decided yet",
    record `Stack: open — decided during /discover` and **skip 3b–3d**, which `/discover` runs at
    the end of its architecture pass instead. Never guess a stack into existence: a gate built for
@@ -125,15 +135,24 @@ down. Never infer it again later from whatever files happen to be lying around.
   `Layout` line**; do not leave the guesses in. A stack with no leg in the template gets one
   written in the same shape: format check → build/typecheck (warnings as errors) → tests →
   advisory check.
-- `hooks/format-changed.ps1` and `hooks/stop-gate.ps1` → `.claude/hooks/`. `stop-gate.ps1`'s
-  source filter is an *exclude* list (docs, markdown, `.claude/`), so it keeps firing whatever the
-  layout is — leave it alone unless the project has another prose-only directory to add. Extend
-  `format-changed.ps1`'s `switch` with a formatter per language in the profile (`ruff format` for
-  `.py`, and so on).
-- Merge the template `settings.snippet.json` into the project's `.claude/settings.json`: hooks
-  wiring (PostToolUse format, Stop gate) + permission allowlist (adapt to the stack — add
-  `Bash(ruff:*)`, `Bash(pytest:*)`, `Bash(npx playwright:*)` as the profile requires) +
-  destructive-command denies. Never overwrite unrelated existing settings.
+- Dual-payload hook scripts → **`.claude/hooks/`** (one copy, both editors):
+  `format-changed.ps1`, `stop-gate.ps1`, `deny-stale-push.ps1` from `templates/hooks/`.
+  `stop-gate.ps1`'s source filter is an *exclude* list (docs, markdown, `.claude/`, `.cursor/`),
+  so it keeps firing whatever the layout is — leave it alone unless the project has another
+  prose-only directory to add. Extend `format-changed.ps1`'s `switch` with a formatter per
+  language in the profile (`ruff format` for `.py`, and so on).
+- **Cursor hooks (always):** copy `templates/cursor/hooks.json` → `.cursor/hooks.json`. Commands
+  are `pwsh -NoProfile -File .claude/hooks/....ps1`. If `pwsh` is not on PATH (Windows PowerShell
+  5.1 only), rewrite those commands to `powershell -NoProfile -File ...` in the copied
+  `.cursor/hooks.json` and in the Claude snippet so hooks actually run. Copy
+  `templates/cursor/worktrees.json` → `.cursor/worktrees.json` and
+  `templates/cursor/setup-worktree-windows.ps1` → `.cursor/setup-worktree-windows.ps1`. Adapt the
+  setup script to this stack (copy `.env` from `$env:ROOT_WORKTREE_PATH`, restore deps). Do **not**
+  put the gate in the plugin's own hooks — the gate is per adopted project.
+- **Claude Code hooks (always):** merge `templates/claude/settings.snippet.json` into the
+  project's `.claude/settings.json`: hooks wiring (PostToolUse format, Stop gate) + permission
+  allowlist (adapt to the stack) + destructive-command denies. Never overwrite unrelated existing
+  settings. There is no `EnterWorktree` on the allowlist.
 - `azure-pipelines.yml` → repo root — section 4 covers adapting it. CI must run the same
   `gate.ps1`, with the same tools installed.
 
@@ -143,7 +162,7 @@ down. Never infer it again later from whatever files happen to be lying around.
 `references/conventions/` (`csharp.md`, `python.md`, `typescript-react.md`) into the project's
 `docs/CONVENTIONS.md`, each under a `# <stack>` heading. A full-stack project gets more than one.
 If the stack has no file here, write the section yourself in the same shape — judgement rules only,
-never formatting — and note which linter owns the rest. CLAUDE.md's `## Coding standards` section
+never formatting — and note which linter owns the rest. AGENTS.md's `## Coding standards` section
 already points every phase at this file; the code-reviewer reads it on every diff.
 
 **Enforcement config, per stack.** The principle: the linter/compiler enforces everything it can, and
@@ -201,7 +220,7 @@ from the app shape, and install it:
 | App shape | The verifier needs | Do this during adoption |
 |---|---|---|
 | HTTP API | an HTTP client + the run command | `Invoke-RestMethod`/`curl` are already there; confirm the API starts and how its port is overridden |
-| Browser UI | a real browser driver | `npx playwright install --with-deps chromium`, or the project's existing E2E runner — never add a second one |
+| Browser UI | a real browser driver | `npx playwright install --with-deps chromium`, or the project's existing E2E runner — never add a second one. Cursor browser tools are valid when the recorded QA tooling is a browser. |
 | CLI | the built binary and a shell | confirm the build produces a runnable entry point |
 | Worker / queue | a way to inject a message and observe the effect | note the local queue or emulator and how to start it |
 | Persistence (any) | a restartable data store | note the container/service command and how to reset it |
@@ -209,7 +228,7 @@ from the app shape, and install it:
 
 Then:
 
-1. **Ask only what you cannot determine** (AskUserQuestion): which E2E runner, if none exists;
+1. **Ask only what you cannot determine** (AskQuestion): which E2E runner, if none exists;
    whether a local database or container is expected to be running; what seed data or credentials a
    verification pass needs. Never ask the user to paste a secret — a required one goes in the
    gitignored `.env` under a documented key name.
@@ -301,7 +320,7 @@ Then:
   phase; skip if the project already has a filled one).
 - **`docs/PHASES.md`** from `../../templates/PHASES.md` — header and empty table. `/discover`
   appends the first row.
-- **Decide the subject taxonomy with the user** (AskUserQuestion). Does this system mirror an
+- **Decide the subject taxonomy with the user** (AskQuestion). Does this system mirror an
   existing product — a clone, a port, a rewrite? If yes, record it in `docs/ARCHITECTURE.md` §1 as
   the reference, and the taxonomy is `docs/systems/<system>/` for subjects that exist in the
   reference (named as the reference names them) plus `docs/platform/<area>/` for everything with no
@@ -330,19 +349,29 @@ skill will refuse to run until it is migrated. Do it here, with the user, in one
 3. Distribute every `D-n` from every phase file's §4 into the owning subject's §4. If the ids are
    already globally unique, **keep them** — renumber only if two files reused an id, and record
    that one-time renumber as a note under §8. An id never changes again afterwards.
-4. Build `docs/PHASES.md` rows from the phase folders and whatever registry CLAUDE.md carried.
+4. Build `docs/PHASES.md` rows from the phase folders and whatever registry AGENTS.md (or a
+   legacy CLAUDE.md) carried.
 5. Fold each `REQUIREMENTS.md`'s goal, success criteria and out-of-scope into its Epic's
    description, and any open question onto the work item it blocks. Its per-feature acceptance
    conditions are already on the Features, so they are dropped, not moved. Its **tuning tables and
    settled rationale are the irreplaceable part** — they go to the owning subject's §3 and §4.
-6. `git rm -r` the phase folders, and repoint every path in source comments, tests and CLAUDE.md at
+6. `git rm -r` the phase folders, and repoint every path in source comments, tests and AGENTS.md at
    the subject that now owns the statement.
 
-## 6. CLAUDE.md
+### 5c. Migrating a pre-2.2 project (CLAUDE.md → AGENTS.md)
 
-- Prepend the Ivan persona from the `CLAUDE-ivan.md` template if the project's CLAUDE.md doesn't
-  already declare Ivan (create CLAUDE.md if absent; if one exists, keep its content below the
-  persona).
+2.2 moves project memory to `AGENTS.md`. If the repo already has a filled `CLAUDE.md` with
+`## Ivan project config` and no `AGENTS.md`:
+
+1. Rename `CLAUDE.md` → `AGENTS.md` (keep the Ivan persona and the config section).
+2. Write a one-line `CLAUDE.md` containing only `@AGENTS.md`.
+3. Replace remaining `CLAUDE.md` path references in docs with `AGENTS.md`, except the shim itself.
+
+## 6. AGENTS.md + CLAUDE.md shim
+
+- Write `AGENTS.md` from `templates/AGENTS-ivan.md` if the project's AGENTS.md doesn't already
+  declare Ivan (create it if absent; if one exists, keep its content below the persona). If you
+  just migrated from CLAUDE.md, skip the prepend — the renamed file already has the persona.
 - Fill the `## Ivan project config` section with everything resolved above:
   ```
   ## Ivan project config
@@ -367,13 +396,20 @@ skill will refuse to run until it is migrated. Do it here, with the user, in one
   Every later phase reads this section. **The phase registry is `docs/PHASES.md`, not this file** —
   `/discover` appends the row there when it creates the Epic and its area path, and sets the
   `Active phase` line here.
+- Write `CLAUDE.md` containing exactly `@AGENTS.md` so Claude Code loads the same project memory.
+  Do not duplicate the persona or config in CLAUDE.md.
 
 ## 7. Verify the enforcement actually works (do not skip)
 
 1. Run `./gate.ps1` → must pass (trivially or genuinely).
-2. Simulate a failure (e.g. a deliberately broken file where the gate looks) and pipe
-   `'{"stop_hook_active": false}'` into `.claude/hooks/stop-gate.ps1` → must exit 2 with the gate
-   output. Clean up.
+2. **Prove both hook shapes.** Simulate a failure (a deliberately broken file where the gate looks).
+   - Claude: pipe `'{"stop_hook_active": false}'` into
+     `powershell -NoProfile -File .claude/hooks/stop-gate.ps1` (or `pwsh` if that is what the
+     copied hooks.json uses) → must exit 2 with the gate output on stderr.
+   - Cursor: pipe a Cursor-shaped payload
+     `'{"loop_count": 0, "conversation_id": "adopt-probe", "status": "completed"}'` into the same
+     script → must exit 0 and print JSON containing `"followup_message"`.
+   Clean up the broken file.
 3. Prove the standards are enforced, not just documented: introduce one deliberate violation the
    linter owns (a `var` where the .editorconfig forbids it and an unused private field for .NET; an
    `any` for TypeScript; an unannotated function for Python), run `./gate.ps1` → must go **red** on
@@ -389,8 +425,8 @@ skill will refuse to run until it is migrated. Do it here, with the user, in one
    `az pipelines runs list --project <project> --branch main --top 1 -o json` — repeat until
    `status` is `completed`, then check `result` is `succeeded`. There is no blocking `run watch`
    in Azure DevOps; poll with a few seconds between calls rather than in a tight loop.
-7. **Land whatever sections 5–7 changed** (docs, CLAUDE.md, any lint fix from step 3) per
-   **Landing a change on `main`** in `references/azure-devops.md`: branch, commit, push,
+7. **Land whatever sections 5–7 changed** (docs, AGENTS.md, CLAUDE.md shim, any lint fix from
+   step 3) per **Landing a change on `main`** in `references/azure-devops.md`: branch, commit, push,
    `pr-create --squash --delete-source-branch --auto-complete`. Do not push to `main` — step 4.2
    made that impossible, and a skill that tries it and then deletes the policy to get past it has
    destroyed the thing it was adopting. **Nothing you wrote may be left uncommitted at hand-off.**
@@ -410,7 +446,12 @@ supply-chain check — and say plainly which parts you proved and which are stil
 repo cannot prove its run commands). They are the lines every later phase trusts without
 re-deriving, so a correction now is cheap and a correction after ten features is not.
 
-Tell the user: adoption complete, and (in a fresh session so CLAUDE.md and hooks load) run
+Tell the user: adoption complete. In a fresh session (so AGENTS.md and hooks load) run
 `/discover <project>` to decompose the first phase into Features, then `/kickoff <feature>` once per
-feature to settle its description. List the notification triggers so they know when they'll be
-pinged: feature complete, backlog complete, stuck, clarification needed, open questions.
+feature to settle its description.
+
+**Cursor Agent auto-run:** ask them to allow `git`, `az`, `python`, and `pwsh *gate.ps1*` (and the
+hook scripts under `.claude/hooks/`) so `/implement` is not blocked on permission prompts.
+
+List the notification triggers so they know when they'll be pinged: feature complete, backlog
+complete, stuck, clarification needed, open questions.

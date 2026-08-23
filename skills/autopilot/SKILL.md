@@ -1,6 +1,7 @@
 ---
 name: autopilot
 description: Ivan works through the active phase's ready feature backlog autonomously, one /implement pipeline per work item, until the backlog is empty or a circuit breaker requires human input.
+disable-model-invocation: true
 ---
 
 # /autopilot — drain the backlog
@@ -10,7 +11,7 @@ phase in the `## Ivan project config` registry, or the one named as the argument
 before starting). Loop:
 
 1. List the buildable Features on that phase's area path — **one call** (see the Azure DevOps
-   access rules in CLAUDE.md):
+   access rules in AGENTS.md):
 
    ```
    python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json
@@ -20,7 +21,7 @@ before starting). Loop:
    queue by construction.
 
    If empty, this phase is done: post a summary (features shipped this run, PRs merged, anything
-   skipped), send a push notification ("<phase>: complete — N features shipped"), then run the
+   skipped), **notify the user** ("<phase>: complete — N features shipped"), then run the
    `retrospective` skill to record lessons and file follow-ups before ending the run. Then check
    `--preset stub-features --area "<Project>\<phase>"`: if features remain undetailed, name them and
    tell the user to run `/kickoff` on them. If the phase is genuinely exhausted and the board has a
@@ -38,7 +39,7 @@ before starting). Loop:
 Rules:
 - One work item at a time, always to completion or explicit skip — never interleave branches. Each
   `/implement` call isolates itself in its own git worktree and cleans up on exit (see
-  **Concurrency** in CLAUDE.md), so this loop can safely run alongside a separate manual
+  **Concurrency** in AGENTS.md), so this loop can safely run alongside a separate manual
   `/implement` session working a different item.
 - If every remaining item is in the skipped-for-clarification set, stop and summarize instead of
   spinning, then run the `retrospective` skill.

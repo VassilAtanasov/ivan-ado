@@ -1,31 +1,33 @@
 # Stop hook: Ivan may not end a working turn while the quality gate fails.
-# - Skips when this stop was already triggered by a previous Stop-hook block (stop_hook_active),
-#   letting Ivan report an unfixable failure instead of looping forever.
-# - Skips turns that changed nothing but prose (docs, markdown, .claude/ config). The filter is
-#   stack-agnostic on purpose: an exclude list stays correct when /adopt points the gate at a
-#   layout other than server/ + client/, where an include list would silently stop firing.
-# - Skips when .gate-stamp matches the current working tree — gate.ps1 already ran green on this
-#   exact code, so re-running it would only repeat a known-good result.
-# - Exit 2 + stderr feeds the gate failure back to Ivan, forcing him to keep fixing.
+#
+# Dual payload:
+#   Claude Code — skip when stop_hook_active; on failure write the gate tail to stderr and exit 2.
+#   Cursor      — skip when loop_count is already looping on a non-source change; on failure write
+#                 {"followup_message": "..."} to stdout and exit 0 (Cursor re-prompts from that).
+#
+# Shared skip rules:
+#   - turns that changed nothing but prose (docs, markdown, .claude/, .cursor/)
+#   - .gate-stamp matches the current working tree (gate.ps1 already ran green on this exact code)
 
 $ErrorActionPreference = 'SilentlyContinue'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
+$raw = ''
+$payload = $null
 try {
-    $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
-    if ($payload.stop_hook_active) { exit 0 }
+    $raw = [Console]::In.ReadToEnd()
+    if ($raw) { $payload = $raw | ConvertFrom-Json }
 } catch { }
 
-$changes = @(git -C $repoRoot status --porcelain 2>$null)
-$sourceChanged = $changes | Where-Object {
-    $path = ($_ -replace '^..\s+', '')
-    $path = ($path -split ' -> ')[-1]          # renames report "old -> new"
-    $path = $path -replace '^"|"$', ''         # git quotes paths containing spaces
-    $path -notmatch '(?i)^(docs/|\.claude/)' -and $path -notmatch '(?i)\.md$'
+$isClaude = $false
+$isCursor = $false
+if ($payload) {
+    $names = @($payload.PSObject.Properties.Name)
+    if ($names -contains 'stop_hook_active') { $isClaude = $true }
+    if ($names -contains 'loop_count' -or $names -contains 'conversation_id') { $isCursor = $true }
+    if ($payload.stop_hook_active) { exit 0 }
 }
-if (-not $sourceChanged) { exit 0 }
 
-# Hash the exact working-tree content without touching the real index. Must match gate.ps1's copy.
 function Get-WorkingTreeHash {
     param([string]$Root)
     $tmpIndex = Join-Path ([IO.Path]::GetTempPath()) ("gate-index-" + [Guid]::NewGuid().ToString('N'))
@@ -39,10 +41,27 @@ function Get-WorkingTreeHash {
     } catch {
         return ''
     } finally {
-        $env:GIT_INDEX_FILE = $prev   # $null assignment removes the variable
+        $env:GIT_INDEX_FILE = $prev
         Remove-Item $tmpIndex -Force -ErrorAction SilentlyContinue
     }
 }
+
+function Test-SourceChanged {
+    param([string]$Root)
+    $changes = @(git -C $Root status --porcelain 2>$null)
+    $sourceChanged = $changes | Where-Object {
+        $path = ($_ -replace '^..\s+', '')
+        $path = ($path -split ' -> ')[-1]
+        $path = $path -replace '^"|"$', ''
+        $path -notmatch '(?i)^(docs/|\.claude/|\.cursor/)' -and $path -notmatch '(?i)\.md$'
+    }
+    return [bool]$sourceChanged
+}
+
+$sourceChanged = Test-SourceChanged $repoRoot
+if (-not $sourceChanged) { exit 0 }
+
+if ($isCursor -and -not $sourceChanged) { exit 0 }
 
 $stampPath = Join-Path $repoRoot '.gate-stamp'
 if (Test-Path $stampPath) {
@@ -51,10 +70,19 @@ if (Test-Path $stampPath) {
     if ($stamp -and $current -and ("$stamp".Trim() -eq $current)) { exit 0 }
 }
 
-$gateOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'gate.ps1') 2>&1
-if ($LASTEXITCODE -ne 0) {
-    $tail = ($gateOutput | Select-Object -Last 40) -join "`n"
-    [Console]::Error.WriteLine("Quality gate FAILED - you cannot finish this turn until gate.ps1 passes. Fix the failures below, re-run ./gate.ps1, and only stop when it is green.`n$tail")
+$gateScript = Join-Path $repoRoot 'gate.ps1'
+$gateOutput = & $gateScript 2>&1
+if ($LASTEXITCODE -eq 0) { exit 0 }
+
+$tail = ($gateOutput | Select-Object -Last 40) -join "`n"
+$message = "Quality gate FAILED - you cannot finish this turn until gate.ps1 passes. Fix the failures below, re-run ./gate.ps1, and only stop when it is green.`n$tail"
+
+if ($isCursor -or -not $isClaude) {
+    @{ followup_message = $message } | ConvertTo-Json -Compress
+    if ($isCursor -and -not $isClaude) { exit 0 }
+}
+if ($isClaude -or -not $isCursor) {
+    [Console]::Error.WriteLine($message)
     exit 2
 }
 exit 0

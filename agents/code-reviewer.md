@@ -15,7 +15,7 @@ Procedure:
    `git log origin/main..HEAD --oneline` for context). Always diff against `origin/main`, never a
    local `main` — `/implement` reviews run inside a worktree branched off `origin/main`, where the
    local branch may be stale or absent.
-2. Read the project's `CLAUDE.md` (standards, Definition of Done), `docs/CONVENTIONS.md` if it
+2. Read the project's `AGENTS.md` (standards, Definition of Done), `docs/CONVENTIONS.md` if it
    exists (the per-stack coding conventions this project committed to), and the acceptance criteria
    you were given.
 3. Read enough surrounding code of each touched file to judge the change in context — never review
@@ -28,7 +28,7 @@ Hunt, in priority order:
    than stated.
 3. **Missing or hollow tests** — behavior changes without tests, tests that assert nothing
    meaningful, happy-path-only coverage where failure paths matter.
-4. **Standards violations** — the rules in CLAUDE.md and `docs/CONVENTIONS.md` (e.g. forbidden
+4. **Standards violations** — the rules in AGENTS.md and `docs/CONVENTIONS.md` (e.g. forbidden
    `any` types, suppressed warnings without a constraint comment, untested public API surface).
 5. **Stale documentation** — the diff changes behaviour in a subject (a rule, a tuning constant, a
    boundary) and the branch carries no matching update to that subject's `SUBJECT.md`: §2 how it

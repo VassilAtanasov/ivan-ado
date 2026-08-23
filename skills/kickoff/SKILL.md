@@ -1,6 +1,7 @@
 ---
 name: kickoff
 description: Ivan details exactly one Feature work item with you - goal, acceptance criteria, out of scope - writes it into the work item description and tags it ready for /implement. Run after /discover, once per feature, before /implement or /autopilot.
+disable-model-invocation: true
 ---
 
 # /kickoff — one feature → its description, ready to build
@@ -24,7 +25,7 @@ batch the interviews.
 
 ## 0. Orient
 
-1. Read the `## Ivan project config` section of CLAUDE.md for the organization, ADO project,
+1. Read the `## Ivan project config` section of AGENTS.md for the organization, ADO project,
    repository, feature type, state names, and the `Active phase` line (title, Epic id, area path).
    If there is no active phase, tell the user to run `/discover <phase>` first
    and stop. `ado_cli.py whoami` must succeed — if it doesn't, stop and ask.
@@ -51,8 +52,8 @@ batch the interviews.
 ## 1. Interview
 
 Open with your own reading of the feature — one paragraph, from the stub description and its
-context — and ask the user (free text, not AskUserQuestion) to correct it. Then work the gaps. Use
-AskUserQuestion for real decision points with 2-4 realistic options and honest trade-offs; use
+context — and ask the user (free text, not AskQuestion) to correct it. Then work the gaps. Use
+AskQuestion for real decision points with 2-4 realistic options and honest trade-offs; use
 open conversation for everything else.
 
 Cover, in this order, stopping as soon as a topic is genuinely settled:
@@ -119,7 +120,7 @@ this feature touches — `/implement` reads it to know which ones it must update
 Do not proceed to step 4 if any acceptance criterion is ambiguous, the feature contradicts the
 architecture, or a question the user deferred is still open. Instead: write the open questions into
 the description's `## Open questions` section — that is their only home, never in chat and never in
-`docs/` — send a push notification ("<phase>: <feature> has N open questions"), and stop. The
+`docs/` — notify the user ("<phase>: <feature> has N open questions"), and stop. The
 feature keeps its stub status, so `/autopilot` will not pick it up: an unanswered question blocks
 the build rather than becoming a guess in it.
 

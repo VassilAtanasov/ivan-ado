@@ -1,6 +1,6 @@
 # Quality gate — the same gate.ps1 developers and Ivan's Stop hook run locally.
 # Installed by /adopt at the repo root. /adopt ADAPTS this file to the project's stack profile
-# (CLAUDE.md → `## Ivan project config`): keep the installer tasks for the runtimes the project
+# (AGENTS.md → `## Ivan project config`): keep the installer tasks for the runtimes the project
 # actually has, delete the rest, and add whatever the gate's own steps need on the agent.
 #
 # The rule: every step gate.ps1 runs locally must be runnable here. A tool that exists on the
@@ -17,6 +17,7 @@ trigger:
     # the build validation branch policy still validates every PR, doc-only ones included.
     exclude:
       - docs/*
+      - AGENTS.md
       - CLAUDE.md
 
 # Azure Repos IGNORES `pr:` triggers. PR validation runs only through a build

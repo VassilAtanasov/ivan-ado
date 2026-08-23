@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "pwsh -NoProfile -File .claude/hooks/format-changed.ps1"
+      }
+    ],
+    "stop": [
+      {
+        "command": "pwsh -NoProfile -File .claude/hooks/stop-gate.ps1",
+        "loop_limit": 30
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "pwsh -NoProfile -File .claude/hooks/deny-stale-push.ps1",
+        "matcher": "git push|az repos pr",
+        "failClosed": true
+      }
+    ]
+  }
+}

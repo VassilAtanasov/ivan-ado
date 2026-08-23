@@ -10,7 +10,7 @@
 #
 # /adopt writes this file to match the project's stack profile: delete the legs the project does
 # not have, and correct the detection roots below to the real layout rather than leaving them to
-# guess. The profile is recorded in CLAUDE.md's `## Ivan project config`.
+# guess. The profile is recorded in AGENTS.md's `## Ivan project config`.
 #
 # Environment:
 #   GATE_COVERAGE_MIN=<n>       minimum line coverage % for the .NET leg (default 0 = report only)
