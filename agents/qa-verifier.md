@@ -13,9 +13,13 @@ Procedure:
    a. **`CLAUDE.md`'s `## Ivan project config`** — the `App shape`, `Run commands` and `QA tooling`
       lines. `/adopt` established and proved them, so they are the answer; do not re-derive a start
       command from the source when these exist.
-   b. the active project's `docs/<project-slug>/ARCHITECTURE.md`, then the repo-wide
-      `docs/ARCHITECTURE.md`, for anything the config does not cover. The per-project file wins
-      where the two disagree.
+   b. **`docs/ARCHITECTURE.md` §3 "How to run it"** — the only how-to-run document; there is no
+      per-phase architecture file. Where §3 and the config's `Run commands` line disagree, the
+      config wins (it was proved) — and say so in your report, because drift between the two is a
+      real defect in the project, not a detail.
+   c. For deciding what "correct" looks like when a criterion is terse, the `SUBJECT.md` of each
+      subject named on the work item: §2 how it behaves today and §3 its tuning values. The
+      acceptance criteria still rule — a subject doc never widens or narrows what you verify.
 
    The `QA tooling` line names what you drive the app with (HTTP client, browser driver, queue
    client, data store). If a tool it names is missing from the machine, say so in your report and

@@ -12,10 +12,15 @@ and the Definition of Done.
 
 Read the `## Ivan project config` section of the project's CLAUDE.md for the organization, ADO
 project, repository, **feature type**, **state names** (in-progress and terminal), the active
-phase, and that phase's registry row (Epic id, area path, docs folder). If missing, run order is
-/adopt → /discover → /kickoff — tell the user and stop. Throughout, "the docs" means the active
-phase's `docs/<project-slug>/REQUIREMENTS.md` and `ARCHITECTURE.md`, falling back to the repo-wide
-`docs/ARCHITECTURE.md` for system-level conventions.
+phase and its `docs/PHASES.md` row (Epic id, area path, subjects touched). If missing, run order is
+/adopt → /discover → /kickoff — tell the user and stop. Throughout, **"the docs" means
+`docs/ARCHITECTURE.md` — §3 how to run it, §4 layout, §5 cross-cutting conventions, §6 standing
+decisions `S-N`, §7 the subject map — plus the `SUBJECT.md` of every subject on this work item's
+`Subjects:` line (fall back to the phase's `docs/PHASES.md` row if the item has no such line).
+There is no per-phase docs folder: the subject docs are the durable ones, and this feature is one
+more thing that happened to them.**
+If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the
+user to re-run `/adopt`, which migrates it.
 
 Follow the **Azure DevOps access** rules in CLAUDE.md for every call: `ado_cli.py` for anything
 carrying text, `az` for read-only extras, never an inline description or comment body on the
@@ -45,8 +50,9 @@ isolate.
    (`ado_cli.py update <id> --state <in-progress> --apply`). Comment on the item: what you're about
    to build and your approach in 3-5 lines (`ado_cli.py comment <id> --file <file> --apply` — write
    the text to a file, never inline).
-2. **Ambiguity check** — if any acceptance criterion is ambiguous or contradicts the active phase's
-   ARCHITECTURE.md: comment the open question on the work item, send a push notification
+2. **Ambiguity check** — if any acceptance criterion is ambiguous, or contradicts a standing
+   decision (`docs/ARCHITECTURE.md` §6) or a `D-NN` in a subject this feature touches: comment the
+   open question on the work item, send a push notification
    ("<phase>: #<id> needs clarification"), set the state back to its initial value, and stop this
    item (under /autopilot: continue with the next one). Never guess.
 3. **Worktree** — `EnterWorktree` with `name: "feature/<id>-<slug>"` (do this from the main
@@ -77,7 +83,27 @@ isolate.
        passes on untouched behavior stand).
    - Repeat until `VERDICT: APPROVE` and `VERDICT: VERIFIED`. Comment: "Review passed
      (N findings fixed). QA verified against acceptance criteria."
-7. **Ship** — commit (small, imperative messages), push the branch
+7. **Update the subject docs — same branch, same PR as the code.** For every subject on the
+   `Subjects:` line:
+   - **§2 How it behaves today** — rewrite the parts this feature changed, present tense, naming
+     the entry points you created so the paragraph is one grep from the code.
+   - **§3 Tuning values** — one row per named constant this feature introduced or changed, citing
+     the symbol. If the feature hard-codes a number with no name, give it one; an unnameable number
+     is a good reason not to have written it.
+   - **§4 Decisions** — promote anything under the work item's `## Implementation notes`, plus the
+     Epic's `## Architecture decisions` this feature realised, plus any decision you took yourself
+     while building. Allocate each id by `docs/ARCHITECTURE.md` §9: `git fetch origin`, read the §8
+     index from `origin/main` (`git show origin/main:docs/ARCHITECTURE.md`), take max + 1, append
+     the index row and write the `D-NN` block in the same commit. **Never renumber an id already on
+     `main`**; on a conflict the row on `main` keeps its id and yours moves up.
+   - **§5 Parity** — update the rows this feature moved, and add one for anything built
+     deliberately different from the reference product, linking the `D-NN` that says why.
+   - If the feature touches a subject that has no doc yet, add its `docs/ARCHITECTURE.md` §7 row
+     and create the file from the plugin's `templates/SUBJECT.md`.
+
+   **A behaviour change merged with a stale subject doc is not done.** This is cheap here and
+   expensive later — you are the only session that still knows why.
+8. **Ship** — commit (small, imperative messages), push the branch
    (`git push -u origin feature/<id>-<slug>`), then open the PR in one call:
 
    ```
@@ -88,7 +114,10 @@ isolate.
    ```
 
    The description file holds the summary of approach, review findings fixed, and QA results —
-   `--description-file`, never inline, so backticks and quotes survive. `--work-item` creates the
+   `--description-file`, never inline, so backticks and quotes survive. **Keep it under 4000
+   characters**: Azure Repos rejects a longer description with a 400, and the dry run does not
+   catch it (see the board contract). The reasoning belongs in the subject docs this PR updates,
+   which have no cap. `--work-item` creates the
    PR→work-item link (Azure Repos has no `Closes #N` keyword); the terminal state is set by you in step 8, not by the
    merge (see the board contract for why).
 

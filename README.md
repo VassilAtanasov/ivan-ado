@@ -1,4 +1,4 @@
-# ivan-ado — Ivan, an autonomous SDLC agent for Claude Code on Azure DevOps
+# Ivan — an autonomous SDLC agent for Claude Code on Azure DevOps
 
 **Ivan** is a Claude Code plugin that turns any Azure DevOps repository into an autonomous software
 development lifecycle: you describe the product, Ivan plans it with you on Azure Boards, then builds
@@ -12,7 +12,7 @@ The plan and the backlog are the same objects — there is no second system to k
 | Work item | Is | Maps to |
 |---|---|---|
 | the ADO team project + its Azure Repo | the repository | never auto-created |
-| **Epic** | one phase of iterative development | an **Area Path** of the same name + `docs/<project-slug>/` |
+| **Epic** | one phase of iterative development | an **Area Path** of the same name + a row in `docs/PHASES.md` (an Epic touches N subject docs, not one folder) |
 | **Feature** | one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, plus `ready` once `/kickoff` settles it |
 | **Task** children, comments | notes, edge cases, open questions | raw material for discovery; never built directly |
 
@@ -27,6 +27,26 @@ the board shows what has shipped. Details:
 tagged `ivan`; only `/kickoff` adds `ready`, and only after every acceptance criterion is settled;
 `/autopilot` builds nothing without it. That is what stops a one-line placeholder being built as a
 guess.
+
+## Documentation model
+
+| Artifact | Owns | Written by |
+|---|---|---|
+| **Feature description** (board) | per-feature product truth: `## Goal` / `## Acceptance criteria` / `## Out of scope` / `## Open questions` | `/kickoff` |
+| **Epic description** (board) | per-phase product truth: goal, success criteria, out of scope, architecture decisions | `/discover` |
+| **`docs/ARCHITECTURE.md`** | the single system doc: stack, how to run it, layout, cross-cutting conventions, standing decisions `S-N`, the **subject map** (§7), the global **decision index** (§8) | `/adopt`, then `/implement` |
+| **`docs/<area>/<subject>/SUBJECT.md`** | one long-lived subject: how it behaves today, tuning values, the `D-NN` it owns, parity vs the reference product | `/implement` |
+| **`docs/PHASES.md`** | the ledger joining phases to the subjects they touched | `/discover`, closed by `/retrospective` |
+
+**The board holds what we intend to be true; `docs/` holds what is true and why.** An Epic is a
+slice of *time*; a subject doc is a slice of the *system* — one Epic touches N subjects, so
+**Epic ↔ docs folder is not 1:1** and `docs/PHASES.md` is the only place they are joined.
+
+**`/implement` is the only thing that writes into `docs/`.** `/discover` and `/kickoff` read them
+so they do not re-decide what is settled, and record their conclusions on the work item; the
+promotion to a `D-NN` happens in the same PR as the code. A decision that has not shipped is
+intent, and intent lives on the board. **Decision ids are global and permanent** — never
+renumbered, never reused.
 
 ## The lifecycle
 
@@ -44,8 +64,8 @@ a time:
 | Skill | What it does |
 |---|---|
 | `/adopt` | Wires Ivan into the current repo. Settles the **stack profile** first (detect → confirm → record: stack, layout, app shape, run commands, QA tooling, supply-chain check), then installs everything that depends on it: quality gate (`gate.ps1`) with the right legs, coding conventions and lint config, enforcement hooks, `azure-pipelines.yml` with the runtimes the agent needs, the **build validation branch policy** on `main`, doc templates, permission allowlist, board-shape detection, and the `## Ivan project config` section in CLAUDE.md. Idempotent, and it proves the gate, the supply-chain step and the QA tooling all really fire before handing off. |
-| `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list: ideation → feature decomposition → architecture, seeded by what's already on the board. Creates the Feature work items with stub descriptions, ensures the phase's area path, and produces `docs/<project-slug>/REQUIREMENTS.md` + `ARCHITECTURE.md`. Resumable. |
-| `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item's description as Markdown; mirrors the criteria into REQUIREMENTS.md; then tags it `ready`. Open questions block the tag instead of becoming guesses. |
+| `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list: ideation → feature decomposition → architecture, seeded by what's already on the board. Creates the Feature work items with stub descriptions, ensures the phase's area path, and writes the phase goal, success criteria and architecture decisions into the Epic description, and appends the phase's row to `docs/PHASES.md`. Resumable. |
+| `/kickoff <feature>` | **Depth, one run per feature.** Interviews you about goal, happy path, edges, and boundaries; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item's description as Markdown; then tags it `ready`. It writes no docs — the description is the contract. Open questions block the tag instead of becoming guesses. |
 | `/implement <id>` | One work item end-to-end **in its own git worktree** (safe to run several at once, on different items): code + tests → gate → adversarial `code-reviewer` agent ∥ `qa-verifier` agent against the running app (parallel; fixes re-checked incrementally) → PR with auto-complete → branch policy green → server-side squash-merge (self-healing: rebases on conflict, fixes red builds, waits out slow ones) → terminal state. |
 | `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends and points you at what still needs `/kickoff` or the next Epic. |
 | `/retrospective` | Autonomous close-out for a run: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files concrete follow-ups as work items tagged `follow-up` (never `ready`, so autopilot won't auto-build them), and safely returns to `main`. Auto-runs at the end of `/autopilot`. |
@@ -89,18 +109,37 @@ Feature work items are the backlog, the phase's area path is the status view, an
 complete, backlog complete, stuck (circuit breaker), clarification needed, open questions awaiting
 input.
 
+## Migrating from 2.0
+
+2.1 retires the per-phase `docs/<project-slug>/` folders and the `REQUIREMENTS.md` inside them. The
+skills **refuse to run** on the old layout rather than guessing which model a repo is on: prose
+instructions that branch on two coexisting doc models get blended, and the old model has no
+decision index for `/implement` to allocate against.
+
+`/adopt` §5b performs the migration, with you, in one PR: bring `docs/ARCHITECTURE.md` up to the
+current template (§7 subject map, §8 decision index, §9 doc conventions), collapsing any per-phase
+"How to run it" chain into one current §3; agree the subject list and create the folders; move each
+phase's decisions into the owning subject, keeping their ids if they are already globally unique;
+build `docs/PHASES.md`; fold each `REQUIREMENTS.md`'s goal and success criteria into its Epic and
+its **tuning tables and settled rationale** into the owning subject; then delete the phase folders
+and repoint every path that named them.
+
+After publishing, every machine needs `claude plugin marketplace update ivan` **and a session
+restart** — skills load at session start, so a half-updated machine runs 2.0 skills against a 2.1
+repo, hits the refusal above, and looks broken.
+
 ## Install (once per machine)
 
 ```
 claude plugin marketplace add VassilAtanasov/ivan-ado
-claude plugin install ivan-ado@ivan-ado
+claude plugin install ivan@ivan
 ```
 
 To run it from a local checkout instead (what you want while the port is in flight):
 
 ```
 claude plugin marketplace add C:\path\to\ivan-ado
-claude plugin install ivan-ado@ivan-ado
+claude plugin install ivan@ivan
 ```
 
 (or the `/plugin marketplace add` / `/plugin install` slash commands in an interactive session).
@@ -121,16 +160,16 @@ two install commands once on their machine:
 ```json
 {
   "extraKnownMarketplaces": {
-    "ivan-ado": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
+    "ivan": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
   },
-  "enabledPlugins": { "ivan-ado@ivan-ado": true }
+  "enabledPlugins": { "ivan@ivan": true }
 }
 ```
 
 ## Update (after enhancing Ivan)
 
 ```
-claude plugin marketplace update ivan-ado
+claude plugin marketplace update ivan
 ```
 
 All projects on the machine pick up the new version at their next session. Template files

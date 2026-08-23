@@ -1,11 +1,11 @@
 {
-  "name": "ivan-ado",
+  "name": "ivan",
   "owner": {
     "name": "Vassil Atanasov"
   },
   "plugins": [
     {
-      "name": "ivan-ado",
+      "name": "ivan",
       "source": "./",
       "description": "Autonomous SDLC agent on Azure DevOps: /adopt a project, /discover requirements, /kickoff a backlog, /autopilot the build."
     }

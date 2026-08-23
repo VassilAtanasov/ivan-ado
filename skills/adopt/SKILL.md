@@ -299,8 +299,44 @@ Then:
 
 - Repo-wide `docs/ARCHITECTURE.md` from the template (system-level decisions shared by every
   phase; skip if the project already has a filled one).
-- Per-project docs are created by `/discover` at `docs/<project-slug>/REQUIREMENTS.md` and
-  `docs/<project-slug>/ARCHITECTURE.md` from the same templates — don't pre-create them here.
+- **`docs/PHASES.md`** from `../../templates/PHASES.md` — header and empty table. `/discover`
+  appends the first row.
+- **Decide the subject taxonomy with the user** (AskUserQuestion). Does this system mirror an
+  existing product — a clone, a port, a rewrite? If yes, record it in `docs/ARCHITECTURE.md` §1 as
+  the reference, and the taxonomy is `docs/systems/<system>/` for subjects that exist in the
+  reference (named as the reference names them) plus `docs/platform/<area>/` for everything with no
+  counterpart there — build, CI, persistence, telemetry, tooling. If no, use a flat
+  `docs/subjects/<subject>/`. Record the answer on the config's `Doc taxonomy` line.
+- **Seed the subject map only from what already exists.** If the repo has code, propose an initial
+  §7 row set from the layout and the reference — propose, confirm, then create each folder's
+  `SUBJECT.md` from `../../templates/SUBJECT.md` with §1 filled. If the repo is empty, create no
+  subject folders: guessing them now produces a taxonomy nobody chose, and `/discover` pass 3
+  settles the list against the first real feature set.
+- Create §8's decision index with its header row and **no rows** — it starts empty and is never
+  renumbered afterwards.
+- Do **not** create per-phase docs folders, and do not create a `REQUIREMENTS.md` anywhere. Per
+  feature and per phase, product truth lives in the Feature and Epic descriptions; there is no doc
+  copy of it to keep in sync.
+
+### 5b. Migrating a pre-2.1 project
+
+If `docs/<anything>/REQUIREMENTS.md` exists, this repo is on the old phase-folder layout and every
+skill will refuse to run until it is migrated. Do it here, with the user, in one PR:
+
+1. Bring `docs/ARCHITECTURE.md` up to the current template — §7 subject map, §8 decision index,
+   §9 doc conventions — folding each phase `ARCHITECTURE.md`'s §1–§3 and §5 into it wherever they
+   are system-wide. Collapse a per-phase "How to run it" **chain of deltas** into one current §3.
+2. Agree the subject list with the user; create the folders from `templates/SUBJECT.md`.
+3. Distribute every `D-n` from every phase file's §4 into the owning subject's §4. If the ids are
+   already globally unique, **keep them** — renumber only if two files reused an id, and record
+   that one-time renumber as a note under §8. An id never changes again afterwards.
+4. Build `docs/PHASES.md` rows from the phase folders and whatever registry CLAUDE.md carried.
+5. Fold each `REQUIREMENTS.md`'s goal, success criteria and out-of-scope into its Epic's
+   description, and any open question onto the work item it blocks. Its per-feature acceptance
+   conditions are already on the Features, so they are dropped, not moved. Its **tuning tables and
+   settled rationale are the irreplaceable part** — they go to the owning subject's §3 and §4.
+6. `git rm -r` the phase folders, and repoint every path in source comments, tests and CLAUDE.md at
+   the subject that now owns the statement.
 
 ## 6. CLAUDE.md
 
@@ -325,15 +361,12 @@ Then:
   - Run commands: <per component: what starts it, and the port override>
   - QA tooling: <what the qa-verifier drives the app with>
   - Supply chain: <the advisory check per stack, and anything it needs network access to>
-  - Active project: (set by /discover)
-
-  ### Projects
-  | Project (phase) | Epic id | Area path | Docs folder |
-  |---|---|---|---|
-  | (filled by /discover) | | | |
+  - Doc taxonomy: <systems+platform (reference: <product>) | subjects (no reference product)>
+  - Active phase: (set by /discover)
   ```
-  Every later phase reads this section; `/discover` adds the project row when it creates the Epic
-  and its area path.
+  Every later phase reads this section. **The phase registry is `docs/PHASES.md`, not this file** —
+  `/discover` appends the row there when it creates the Epic and its area path, and sets the
+  `Active phase` line here.
 
 ## 7. Verify the enforcement actually works (do not skip)
 
