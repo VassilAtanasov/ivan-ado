@@ -42,7 +42,7 @@ batch the interviews.
    is a finding to raise with the user, not to design around silently — a feature that contradicts
    a `D-NN` either gets redesigned or supersedes that decision explicitly, never quietly. If the
    phase has no `docs/PHASES.md` row, send the user back to `/discover`. If any
-   `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the user to
+   `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the user to
    re-run `/adopt`, which migrates it.
 5. **If the feature is already tagged `ready`**, say so and ask whether to refine it, or stop.
    Refining is fine while its state is still the initial one; once `/implement` has moved it to the

@@ -56,7 +56,7 @@ organization, ADO project, repository, **feature type**, **state names**, and th
    **This is read-only** — discovery writes to the board, never to `docs/` — and its purpose is
    that you do not re-decide something this system has already settled as a `D-NN`.
    If `docs/ARCHITECTURE.md` or `docs/PHASES.md` is missing, run `/adopt` first and stop. If any
-   `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the user to
+   `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the user to
    re-run `/adopt`, which migrates it.
 
 Then summarize in a few lines: this phase's place in the sequence, what the board already says,

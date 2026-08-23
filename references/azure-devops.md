@@ -40,7 +40,7 @@ Two skills fill the board, and neither does the other's job:
 **An Epic is not a docs folder.** An Epic is a slice of *time*; a docs subject is a slice of the
 *system*. One Epic touches several subjects, and one subject is touched by many Epics over the life
 of the repository. `docs/PHASES.md` is the only place the two are joined. Anything that assumes
-`docs/<phase-slug>/` is pre-3.0.
+`docs/<phase-slug>/` is pre-2.1.
 
 **The board holds what we intend to be true; `docs/` holds what is true and why.** `/discover` and
 `/kickoff` read the docs and write only to the board; **`/implement` is the only thing that writes
@@ -172,6 +172,20 @@ ORDER BY [System.Id]
 The other presets: `stub-features` is the same query inverted on `ready` — what `/kickoff` still
 has to detail — and `follow-ups` lists what `/retrospective` filed. Tags, not types, separate
 follow-ups and stubs from buildable work, so `/autopilot` never auto-builds either.
+
+## PR descriptions are capped at 4000 characters
+
+Azure Repos rejects a longer one with `400 Invalid argument value. Parameter name: A description
+for a pull request must not be longer than 4000 characters.` **The dry run does not catch it** —
+`ado_cli.py` prints the full payload happily and the cap only surfaces on `--apply`, so a long
+description looks fine right up until the write fails. Count before you apply
+(`python -c "import io;print(len(io.open(PATH,encoding='utf-8').read()))"`), and note the limit is
+**characters, not bytes**: an em dash or a `§` costs one against the cap but two or three in
+`wc -c`.
+
+Keep a PR description to what a reviewer needs — what changed, why, and what to watch. The full
+reasoning belongs in the subject docs the same PR updates, which have no cap and are where a reader
+will look for it six months later.
 
 ## PR → work item
 

@@ -19,7 +19,7 @@ decisions `S-N`, §7 the subject map — plus the `SUBJECT.md` of every subject 
 `Subjects:` line (fall back to the phase's `docs/PHASES.md` row if the item has no such line).
 There is no per-phase docs folder: the subject docs are the durable ones, and this feature is one
 more thing that happened to them.**
-If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the
+If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the
 user to re-run `/adopt`, which migrates it.
 
 Follow the **Azure DevOps access** rules in CLAUDE.md for every call: `ado_cli.py` for anything
@@ -114,7 +114,10 @@ isolate.
    ```
 
    The description file holds the summary of approach, review findings fixed, and QA results —
-   `--description-file`, never inline, so backticks and quotes survive. `--work-item` creates the
+   `--description-file`, never inline, so backticks and quotes survive. **Keep it under 4000
+   characters**: Azure Repos rejects a longer description with a 400, and the dry run does not
+   catch it (see the board contract). The reasoning belongs in the subject docs this PR updates,
+   which have no cap. `--work-item` creates the
    PR→work-item link (Azure Repos has no `Closes #N` keyword); the terminal state is set by you in step 8, not by the
    merge (see the board contract for why).
 

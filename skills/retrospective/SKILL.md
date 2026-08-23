@@ -12,7 +12,7 @@ Read the `## Ivan project config` section of the project's CLAUDE.md for the org
 project, repository, feature type, state names, the `Active phase` line (title, Epic id, area
 path) and that phase's row in `docs/PHASES.md`. If missing, tell the user the run order is /adopt → /discover → /kickoff →
 /implement and stop.
-If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-3.0 layout: stop and tell the
+If any `docs/*/REQUIREMENTS.md` exists, this repo is on the pre-2.1 layout: stop and tell the
 user to re-run `/adopt`, which migrates it. Follow the **Azure DevOps access** rules in CLAUDE.md for every call.
 
 Scope: the just-finished `/autopilot` run when invoked at the end of one; otherwise the merged work

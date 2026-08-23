@@ -318,7 +318,7 @@ Then:
   feature and per phase, product truth lives in the Feature and Epic descriptions; there is no doc
   copy of it to keep in sync.
 
-### 5b. Migrating a pre-3.0 project
+### 5b. Migrating a pre-2.1 project
 
 If `docs/<anything>/REQUIREMENTS.md` exists, this repo is on the old phase-folder layout and every
 skill will refuse to run until it is migrated. Do it here, with the user, in one PR:

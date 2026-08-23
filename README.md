@@ -1,4 +1,4 @@
-# ivan-ado — Ivan, an autonomous SDLC agent for Claude Code on Azure DevOps
+# Ivan — an autonomous SDLC agent for Claude Code on Azure DevOps
 
 **Ivan** is a Claude Code plugin that turns any Azure DevOps repository into an autonomous software
 development lifecycle: you describe the product, Ivan plans it with you on Azure Boards, then builds
@@ -109,9 +109,9 @@ Feature work items are the backlog, the phase's area path is the status view, an
 complete, backlog complete, stuck (circuit breaker), clarification needed, open questions awaiting
 input.
 
-## Migrating from 2.x
+## Migrating from 2.0
 
-3.0 retires the per-phase `docs/<project-slug>/` folders and the `REQUIREMENTS.md` inside them. The
+2.1 retires the per-phase `docs/<project-slug>/` folders and the `REQUIREMENTS.md` inside them. The
 skills **refuse to run** on the old layout rather than guessing which model a repo is on: prose
 instructions that branch on two coexisting doc models get blended, and the old model has no
 decision index for `/implement` to allocate against.
@@ -124,22 +124,22 @@ build `docs/PHASES.md`; fold each `REQUIREMENTS.md`'s goal and success criteria 
 its **tuning tables and settled rationale** into the owning subject; then delete the phase folders
 and repoint every path that named them.
 
-After publishing, every machine needs `claude plugin marketplace update ivan-ado` **and a session
-restart** — skills load at session start, so a half-updated machine runs 2.x skills against a 3.0
+After publishing, every machine needs `claude plugin marketplace update ivan` **and a session
+restart** — skills load at session start, so a half-updated machine runs 2.0 skills against a 2.1
 repo, hits the refusal above, and looks broken.
 
 ## Install (once per machine)
 
 ```
 claude plugin marketplace add VassilAtanasov/ivan-ado
-claude plugin install ivan-ado@ivan-ado
+claude plugin install ivan@ivan
 ```
 
 To run it from a local checkout instead (what you want while the port is in flight):
 
 ```
 claude plugin marketplace add C:\path\to\ivan-ado
-claude plugin install ivan-ado@ivan-ado
+claude plugin install ivan@ivan
 ```
 
 (or the `/plugin marketplace add` / `/plugin install` slash commands in an interactive session).
@@ -160,16 +160,16 @@ two install commands once on their machine:
 ```json
 {
   "extraKnownMarketplaces": {
-    "ivan-ado": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
+    "ivan": { "source": { "source": "github", "repo": "VassilAtanasov/ivan-ado" } }
   },
-  "enabledPlugins": { "ivan-ado@ivan-ado": true }
+  "enabledPlugins": { "ivan@ivan": true }
 }
 ```
 
 ## Update (after enhancing Ivan)
 
 ```
-claude plugin marketplace update ivan-ado
+claude plugin marketplace update ivan
 ```
 
 All projects on the machine pick up the new version at their next session. Template files
