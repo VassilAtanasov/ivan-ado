@@ -14,8 +14,8 @@ The plan and the backlog are the same objects — there is no second system to k
 |---|---|---|
 | the ADO team project + its Azure Repo | the repository | never auto-created |
 | **Epic** | one phase of iterative development | an **Area Path** of the same name + a row in `docs/PHASES.md` (an Epic touches N subject docs, not one folder) |
-| **Feature** | one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, plus `ready` once `/kickoff` settles it |
-| **Task** children, comments | notes, edge cases, open questions | raw material for discovery; never built directly |
+| **Feature / User Story / Task** tagged `ready` | one shippable slice; its **Description** is the contract | built by `/implement`; `/kickoff` tags Features `ready`. A Story or Task is buildable the same way — only with the `ready` tag |
+| untagged **Task** children, comments | notes, edge cases, open questions | raw material for discovery; not built until tagged `ready` |
 
 Azure Boards is the source of truth for the **plan and the execution**, `docs/` for the **product
 truth**. Interactive writes are dry-run until you say go, and Ivan never deletes a work item — the
@@ -25,9 +25,9 @@ the board shows what has shipped. Details:
 [`references/azure-devops.md`](references/azure-devops.md).
 
 **The `ready` tag is the boundary between planning and building.** `/discover` creates Features
-tagged `ivan`; only `/kickoff` adds `ready`, and only after every acceptance criterion is settled;
-`/autopilot` builds nothing without it. That is what stops a one-line placeholder being built as a
-guess.
+tagged `ivan`; only `/kickoff` adds `ready`, and only after every acceptance criterion is settled.
+`/autopilot` then builds every **Feature, User Story, or Task** on the phase that carries `ready`.
+That is what stops a one-line placeholder being built as a guess.
 
 ## Documentation model
 
@@ -68,7 +68,7 @@ a time:
 | `/discover <phase>` | **Breadth, one run per phase.** Decomposes one Epic into its feature list. Creates Feature work items with stub descriptions, ensures the phase's area path, writes the phase goal into the Epic description, and appends the phase's row to `docs/PHASES.md`. Resumable. |
 | `/kickoff <feature>` | **Depth, one run per feature.** Interviews you; writes `## Goal`, `## Acceptance criteria`, `## Out of scope` into the work item description; tags it `ready`. Writes no docs — the description is the contract. |
 | `/implement <id>` | One work item end-to-end **in its own git worktree** (agent root moved into that worktree before any edits): code + tests → gate → adversarial `code-reviewer` (read-only) ∥ `qa-verifier` against the running app → PR with auto-complete → branch policy green → server-side squash-merge → terminal state. |
-| `/autopilot` | Loops `/implement` over the phase's `ready` backlog until it's drained; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends. |
+| `/autopilot` | Loops `/implement` over the phase's `ready` backlog (Features, User Stories, and Tasks) until it's drained; after each item, cleans the worktree and local branch then re-queries ADO; circuit breaker stops and notifies you after 3 failed cycles on one item; runs `/retrospective` when the run ends. |
 | `/retrospective` | Autonomous close-out: records outcome + lessons to `docs/RETROSPECTIVE-LOG.md`, files follow-ups tagged `follow-up` (never `ready`), and safely returns to `main`. |
 
 ## Running several sessions at once

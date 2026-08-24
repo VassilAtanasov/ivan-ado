@@ -28,8 +28,8 @@ listing them, so they never have to poll to find out their decision is blocking 
 |---|---|---|
 | 1 | the ADO team project and its Azure Repo | the repository; never auto-created |
 | 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | a row in `docs/PHASES.md`; the Area Path is the backlog filter. **Not** a docs folder — an Epic touches N subject docs |
-| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, plus `ready` once `/kickoff` settles it |
-| 4+ | child **Task** items, description bullets, discussion comments | raw material for discovery; never built directly |
+| 3 | **Feature / User Story / Task** tagged `ready` — one shippable slice; its **Description** is the contract | built by `/implement`; `/kickoff` tags Features `ready`. A User Story or Task is buildable the same way — only with the `ready` tag |
+| 4+ | untagged child **Task** items, description bullets, discussion comments | raw material for discovery; not built until tagged `ready` |
 
 `/discover <project>` decides which Features an Epic contains (titles + stub descriptions).
 `/kickoff <feature>` settles one of them with you, writes the full description —
@@ -61,7 +61,7 @@ Writes need a credential (see below) and are dry-run until the user says go.
 in-progress state when it starts and to the terminal state after its PR merges, closing the loop so
 the board shows what has shipped. Those writes skip the dry run (build mode has no user to ask) but
 are non-blocking: a failed transition is reported, never retried into a thrash and never a reason to
-touch merged code. Nothing else — not an Epic, not a user's Task — is ever transitioned by Ivan.
+touch merged code. Nothing else — not an Epic, not an untagged Task — is ever transitioned by Ivan.
 
 ## Azure DevOps access (every skill, no exceptions)
 
@@ -83,7 +83,8 @@ Five rules, so no skill improvises:
 2. **Never parse table output**: anything you act on comes back from `az ... -o json` or
    `ado_cli.py ... --json`.
 3. **One WIQL call, not a client-side filter**: `ado_cli.py query --preset open-features --area
-   "<Project>\<phase>"` is the backlog. It filters server-side, so nothing truncates.
+   "<Project>\<phase>"` is the backlog (Feature, User Story, Task, and process aliases tagged
+   `ready`). It filters server-side, so nothing truncates.
 4. **Never rediscover what the config caches**: process name, type names, state names, repo name
    and Epic id live in the Ivan project config below. Only `/adopt` and `/discover` write them.
 5. **Every write is dry-run first in interactive mode** (`--apply` on the second call), and
@@ -91,7 +92,7 @@ Five rules, so no skill improvises:
 
 Preferred one-liners:
 
-- Open features on a phase's board:
+- Ready backlog on a phase's board (Feature, User Story, Task, and process aliases):
   `python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json`
 - Wait for a PR's policies (there is no blocking `--watch` in Azure DevOps):
   `python <plugin>/scripts/ado_cli.py pr-wait <pr> --repo <repo>` — **branch on its exit code**:

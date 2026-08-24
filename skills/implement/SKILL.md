@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Ivan implements exactly one Feature work item end-to-end in an isolated git worktree - branch, code with tests, quality gate, adversarial review, QA verification, pull request, pipeline, merge. Autonomous build mode. Safe to run several at once, one work item per session. Run after /kickoff tagged the feature ready.
+description: Ivan implements exactly one ready work item (Feature, User Story, or Task) end-to-end in an isolated git worktree - branch, code with tests, quality gate, adversarial review, QA verification, pull request, pipeline, merge. Autonomous build mode. Safe to run several at once, one work item per session. Run after the item is tagged ready.
 disable-model-invocation: true
 ---
 
@@ -29,15 +29,17 @@ command line. The CLI is `../../scripts/ado_cli.py` relative to this SKILL.md; t
 is `../../references/azure-devops.md`.
 
 If an argument was given, work that work item and do not query for it. Otherwise pick the
-lowest-numbered buildable Feature **on the active phase's area path** — one call:
+lowest-numbered ready work item **on the active phase's area path** — Feature, User Story,
+Product Backlog Item, Issue, or Task — one call:
 
 ```
 python <plugin>/scripts/ado_cli.py query --preset open-features --area "<Project>\<phase>" --json
 ```
 
-That preset requires the `ready` tag, so a `/discover` stub can never reach this pipeline. If it
-returns nothing, say so and stop — features that still need `/kickoff` show up under
-`--preset stub-features`, and they are the user's work, not yours.
+That preset requires the `ready` tag and is not Feature-only, so a `/discover` stub can never
+reach this pipeline and a ready Story or Task can. If it returns nothing, say so and stop —
+features that still need `/kickoff` show up under `--preset stub-features`, and they are the
+user's work, not yours.
 
 This pipeline runs **inside an isolated git worktree** so it never collides with another
 `/implement` session (manual or under a separate `/autopilot`) working a different work item at the
@@ -58,7 +60,11 @@ isolate.
    item (under /autopilot: continue with the next one). Never guess.
 3. **Worktree** — isolate this build before any file edit.
    - If already inside a worktree (`git rev-parse --git-dir` is not the same path as
-     `--git-common-dir`): skip create; you are already isolated. Confirm the branch name.
+     `--git-common-dir`): skip create **only if** the current branch is already
+     `feature/<this-id>-<slug>`. If it is a leftover worktree from a previous item (under
+     `/autopilot` this is a missed cleanup), `move_agent_to_root` back to `$mainRepo`,
+     `git worktree remove` that leftover, delete its local branch, then create this item's
+     worktree below. Never implement two items in the same worktree.
    - Else from the main checkout (`$mainRepo`):
      ```
      git fetch origin
@@ -186,15 +192,19 @@ isolate.
    It is non-blocking: if the call fails, say so in the close-out summary and carry on. A merged
    feature is never reopened or reverted over a bookkeeping write.
 
-   **Notify the user**: "<phase>: feature #<id> complete — <title>".
+   **Notify the user**: "<phase>: #<id> complete — <title>".
 
 10. **Clean up** — `move_agent_to_root` back to `$mainRepo`, then
     `git worktree remove <worktree-path>`. Removing is safe here specifically because the code is
     already in Azure Repos via the merged, squashed PR, and `--delete-source-branch` already
     removed the remote branch — only this now-redundant local worktree copy is being discarded.
     If `git worktree remove` reports anything you didn't expect (uncommitted files, a second
-    branch), stop and look before discarding. Then `git checkout main` (if it isn't already) and
-    `git pull` so the squash-merge commit is present locally.
+    branch), stop and look before discarding. Then delete the leftover local branch —
+    `git branch -D feature/<id>-<slug>` (`-D` because a squash-merge is not an ancestor) — and
+    `git worktree prune`. Then `git checkout main` (if it isn't already) and
+    `git pull --ff-only` so the squash-merge commit is present locally. Under `/autopilot` this
+    return to `main` is what lets the next item start; do not leave the session on the old
+    feature branch.
 
 ## Circuit breaker
 

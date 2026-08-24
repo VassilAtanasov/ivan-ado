@@ -428,14 +428,39 @@ def run_wiql(query: str) -> list[int]:
     return [w["id"] for w in data.get("workItems", [])]
 
 
-# A Feature is only auto-buildable once /kickoff has settled it and tagged it
-# `ready`. /discover's stubs carry `ivan` but not `ready`, which is what stops
-# /autopilot building a one-line placeholder.
+# A work item is only auto-buildable once it is tagged `ready`. /discover's
+# Feature stubs carry `ivan` but not `ready`, which is what stops /autopilot
+# building a one-line placeholder. User Stories and Tasks are picked the same
+# way — only when tagged `ready`. Epics are never in this list.
+BUILDABLE_TYPES = (
+    "Feature",
+    "User Story",
+    "Product Backlog Item",
+    "Issue",
+    "Task",
+)
+
+
+def wiql_quoted_list(values: tuple[str, ...] | list[str]) -> str:
+    return ", ".join("'" + v.replace("'", "''") + "'" for v in values)
+
+
+def preset_type_clause(args: argparse.Namespace) -> tuple[str, str]:
+    """Return (single_type, types_in_list) for preset format strings."""
+    if args.type:
+        types = [args.type]
+    elif getattr(args, "preset", None) == "open-features":
+        types = list(BUILDABLE_TYPES)
+    else:
+        types = ["Feature"]
+    return types[0], wiql_quoted_list(types)
+
+
 PRESETS = {
     "open-features": (
         "SELECT [System.Id] FROM WorkItems "
         "WHERE [System.TeamProject] = @project "
-        "AND [System.WorkItemType] = '{type}' "
+        "AND [System.WorkItemType] IN ({types}) "
         "{area}"
         "AND [System.State] NOT IN ('Closed', 'Removed', 'Done', 'Resolved') "
         "AND [System.Tags] CONTAINS 'ready' "
@@ -479,7 +504,8 @@ def build_query(args: argparse.Namespace) -> str:
     area = ""
     if args.area:
         area = f"AND [System.AreaPath] UNDER '{args.area}' "
-    return template.format(type=args.type, area=area)
+    single, types_sql = preset_type_clause(args)
+    return template.format(type=single, types=types_sql, area=area)
 
 
 def render_rows(items: list[dict[str, Any]]) -> None:
@@ -1163,7 +1189,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--preset", choices=sorted(PRESETS), default="open-features", help="Canned query"
     )
     query.add_argument("--area", help="Area path to scope a preset to (UNDER)")
-    query.add_argument("--type", default="Feature", help="Work item type for a preset")
+    query.add_argument(
+        "--type",
+        default=None,
+        help=(
+            "Work item type for a preset. open-features defaults to Feature, "
+            "User Story, Product Backlog Item, Issue and Task; other presets "
+            "default to Feature"
+        ),
+    )
 
     show = subparsers.add_parser("show", help="Show one work item")
     show.add_argument("id", type=int)

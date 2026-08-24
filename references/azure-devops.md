@@ -13,8 +13,8 @@ remains the written **product truth**.
 |---|---|---|
 | 1 | the **ADO team project** (e.g. `MW3`) and its Azure Repo | the repo itself; never auto-created |
 | 2 | **Epic** — one phase of iterative development, plus an **Area Path** of the same name | a row in `docs/PHASES.md`; the Area Path is the backlog filter. **Not** a docs folder — see below |
-| 3 | **Feature** — one shippable slice; its **Description** is the feature description | built by `/implement`; tagged `ivan`, and `ready` once `/kickoff` has settled it |
-| 4+ | **Task** children, description bullets, discussion comments | raw material for discovery; never built directly |
+| 3 | **Feature / User Story / Task** tagged `ready` — one shippable slice; its **Description** is the contract | built by `/implement`; `/kickoff` tags Features `ready`. A User Story or Task is buildable the same way — only with the `ready` tag |
+| 4+ | untagged **Task** children, description bullets, discussion comments | raw material for discovery; not built until tagged `ready` |
 
 Titles are short (≤ 15 words) and carry the `FR-N` prefix (`FR-3: <name>`). Everything longer —
 rationale, acceptance criteria, examples — goes in the **Description**, in this exact shape:
@@ -63,11 +63,11 @@ state (`Closed` on Agile) itself — see **PR → work item** below for why that
 Never hardcode them. `/adopt` runs `ado_cli.py project-info` once and records the resolved names in
 the Ivan project config; every later phase reads them from there.
 
-| Process | Phase | Feature | Buildable | States |
+| Process | Phase | Feature | Buildable when tagged `ready` | States |
 |---|---|---|---|---|
-| **Agile** (MW3) | Epic | Feature | Feature | New → Active → Resolved → Closed |
-| Scrum | Epic | Feature | Product Backlog Item | New → Approved → Committed → Done |
-| Basic | Epic | *(none)* | Issue | To Do → Doing → Done |
+| **Agile** (MW3) | Epic | Feature | Feature, User Story, Task | New → Active → Resolved → Closed |
+| Scrum | Epic | Feature | Feature, Product Backlog Item, Task | New → Approved → Committed → Done |
+| Basic | Epic | *(none)* | Issue, Task | To Do → Doing → Done |
 
 Basic has no `Feature` type — a Basic project must be converted (Organization settings → Boards →
 Process → Basic → Projects → Change process) or `/adopt` must fall back to `Issue`.
@@ -156,12 +156,14 @@ this is what keeps backticks, quotes and `#` in a description intact through Pow
 
 ## Backlog queries
 
-The autopilot backlog is one WIQL call, filtered server-side (`--preset open-features`):
+The autopilot backlog is one WIQL call, filtered server-side (`--preset open-features`). It is
+not Feature-only: a User Story or Task tagged `ready` is in the same queue. Pass `--type Feature`
+to restrict it.
 
 ```wiql
 SELECT [System.Id] FROM WorkItems
 WHERE [System.TeamProject] = @project
-  AND [System.WorkItemType] = 'Feature'
+  AND [System.WorkItemType] IN ('Feature', 'User Story', 'Product Backlog Item', 'Issue', 'Task')
   AND [System.AreaPath] UNDER 'MW3\Phase 1'
   AND [System.State] NOT IN ('Closed', 'Removed', 'Done', 'Resolved')
   AND [System.Tags] CONTAINS 'ready'
@@ -169,9 +171,10 @@ WHERE [System.TeamProject] = @project
 ORDER BY [System.Id]
 ```
 
-The other presets: `stub-features` is the same query inverted on `ready` — what `/kickoff` still
+The other presets: `stub-features` is Feature-only, inverted on `ready` — what `/kickoff` still
 has to detail — and `follow-ups` lists what `/retrospective` filed. Tags, not types, separate
-follow-ups and stubs from buildable work, so `/autopilot` never auto-builds either.
+follow-ups and stubs from buildable work, so `/autopilot` never auto-builds either. Epics are
+never in `open-features`.
 
 ## PR descriptions are capped at 4000 characters
 
