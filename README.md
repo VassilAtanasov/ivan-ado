@@ -172,7 +172,7 @@ migrate: it renames a filled `CLAUDE.md` to `AGENTS.md` and writes the shim.
 ## Layout
 
 ```
-.cursor-plugin/plugin.json     Cursor plugin manifest (v2.2.0)
+.cursor-plugin/plugin.json     Cursor plugin manifest (v2.2.1)
 .cursor-plugin/marketplace.json Cursor marketplace catalog (Import from Github)
 .claude-plugin/plugin.json     Claude Code manifest (same version)
 .claude-plugin/marketplace.json Claude Code marketplace

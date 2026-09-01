@@ -1,7 +1,6 @@
 ---
 name: retrospective
-description: Ivan captures lessons after a run - what shipped, what caused rework, concrete follow-ups filed as tagged work items, safe return to main. Autonomous, no human gate. Auto-invoked at the end of /autopilot; also runnable standalone.
-disable-model-invocation: true
+description: Ivan captures lessons after a run - what shipped, what caused rework, concrete follow-ups filed as tagged work items, safe return to main. Autonomous, no human gate. Auto-invoked at the end of /autopilot; also runnable standalone. Invoke only when the user runs /retrospective or when the autopilot skill chains into it at the end of a run - never on your own initiative.
 ---
 
 # /retrospective — close the loop after a run
