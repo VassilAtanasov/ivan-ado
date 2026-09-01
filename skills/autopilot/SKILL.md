@@ -21,20 +21,25 @@ before starting). Loop:
    queue by construction.
 
    If empty, this phase is done: post a summary (features shipped this run, PRs merged, anything
-   skipped), **notify the user** ("<phase>: complete — N features shipped"), then run the
-   `retrospective` skill to record lessons and file follow-ups before ending the run. Then check
+   skipped), **notify the user** ("<phase>: complete — N features shipped"), then invoke the
+   `retrospective` skill (Skill tool, same as step 2) to record lessons and file follow-ups before
+   ending the run. Then check
    `--preset stub-features --area "<Project>\<phase>"`: if features remain undetailed, name them and
    tell the user to run `/kickoff` on them. If the phase is genuinely exhausted and the board has a
    later Epic, name it and tell the user to run `/discover <next>` — do not start it yourself.
-2. Run the full `/implement` pipeline (the `implement` skill of this plugin) on the
-   lowest-numbered work item from step 1, **passing the id explicitly** so it does not re-run the
-   query you just ran.
+2. Run the full `/implement` pipeline on the lowest-numbered work item from step 1 by invoking
+   this plugin's `implement` skill through the Skill tool (`skill: "ivan:implement"`, or plain
+   `implement` if the host does not namespace plugin skills), **passing the id explicitly** as the
+   skill argument so it does not re-run the query you just ran. Chaining into it this way is
+   intended and allowed — `implement` and `retrospective` are model-invocable precisely so
+   `/autopilot` can drive them; do not fall back to inlining their steps by hand.
 3. Outcomes:
    - **Merged** → next iteration.
    - **Skipped for clarification** (ambiguity rule) → next iteration; collect it for the final summary.
    - **Circuit breaker tripped** (3 failed cycles) → STOP the whole run. The notification and
      work item diagnosis were already sent by /implement; add a run summary of what shipped before
-     the stop, then run the `retrospective` skill to capture what shipped and why the run stopped.
+     the stop, then invoke the `retrospective` skill (Skill tool, same as step 2) to capture what
+     shipped and why the run stopped.
 
 Rules:
 - One work item at a time, always to completion or explicit skip — never interleave branches. Each
@@ -42,7 +47,7 @@ Rules:
   **Concurrency** in AGENTS.md), so this loop can safely run alongside a separate manual
   `/implement` session working a different item.
 - If every remaining item is in the skipped-for-clarification set, stop and summarize instead of
-  spinning, then run the `retrospective` skill.
+  spinning, then invoke the `retrospective` skill (Skill tool, same as step 2).
 - Between items, verify `main` is green:
   `az pipelines runs list --org <org> --project <project> --branch main --top 1 -o json` — check
   `status` is `completed` and `result` is `succeeded`. If main is somehow red, fixing main IS the

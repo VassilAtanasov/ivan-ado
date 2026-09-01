@@ -1,7 +1,6 @@
 ---
 name: implement
-description: Ivan implements exactly one Feature work item end-to-end in an isolated git worktree - branch, code with tests, quality gate, adversarial review, QA verification, pull request, pipeline, merge. Autonomous build mode. Safe to run several at once, one work item per session. Run after /kickoff tagged the feature ready.
-disable-model-invocation: true
+description: Ivan implements exactly one Feature work item end-to-end in an isolated git worktree - branch, code with tests, quality gate, adversarial review, QA verification, pull request, pipeline, merge. Autonomous build mode. Safe to run several at once, one work item per session. Run after /kickoff tagged the feature ready. Invoke only when the user runs /implement or when the autopilot skill chains into it with an explicit work item id - never on your own initiative.
 ---
 
 # /implement — one work item, full pipeline
